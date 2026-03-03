@@ -2,10 +2,18 @@ grammar Expresiones;
 
 root : expr+ EOF ;
 
-expr : expr '+' expr
-     | expr '*' expr
-     | INT
+expr : PAI expr PAD
+     | expr (MUL | DIV) expr
+     | expr (SUM | RES) expr
+     | NUM
      ;
 
-INT : [0-9]+ ;
-WS : [ \t\r\n]+ -> skip ;
+//Operadores
+SUM : '+' ;
+RES : '-' ;
+MUL : '*' ;
+DIV : '/' ;
+PAI : '(' ;
+PAD : ')' ;
+NUM : [0-9]+ ;
+WS : [ \n\t\r]+ -> skip ;

@@ -30,10 +30,10 @@ def analizar(texto):
     tree = parser.root()
 
     if error_listener.errors == 0:
-        print("Expresión válida ✅")
+        print("Expresión válida")
         print("Árbol:", tree.toStringTree(recog=parser))
     else:
-        print("Expresión inválida ❌")
+        print("Expresión inválida")
 
 
 if __name__ == "__main__":
