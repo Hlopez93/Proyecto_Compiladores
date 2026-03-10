@@ -4,7 +4,8 @@ grammar Expresiones;
 root : PROGRAM LLA statement* LLC EOF ;
 
 // SENTENCIAS
-statement : declaration
+statement
+    : declaration
     | assignment
     | ifStatement
     ;
@@ -18,11 +19,12 @@ assignment : VAR ASIG expr ';' ;
 // IF
 ifStatement : IF PAI condition PAD block (ELSE block)? ;
 
-// ESTRUCTURA DE BLOQUE
+// BLOQUES
 block : LLA statement* LLC ;
 
-// CONDICION
-condition : condition AND condition
+// CONDICIONES
+condition
+    : condition AND condition
     | condition OR condition
     | NOT condition
     | expr relop expr
@@ -30,15 +32,28 @@ condition : condition AND condition
     ;
 
 // EXPRESIONES
-expr : PAI expr PAD
-    | expr (MUL | DIV) expr
-    | expr (SUM | RES) expr
+
+expr
+    : expr SUM term
+    | expr RES term
+    | term
+    ;
+
+term
+    : term MUL factor
+    | term DIV factor
+    | factor
+    ;
+
+factor
+    : PAI expr PAD
     | NUM
     | VAR
     ;
 
 // OPERADORES RELACIONALES
-relop : '>'
+relop
+    : '>'
     | '<'
     | '>='
     | '<='
@@ -47,6 +62,7 @@ relop : '>'
     ;
 
 // TOKENS
+
 PROGRAM : 'program' ;
 TVAR : 'var' ;
 INT : 'int' ;
