@@ -35,15 +35,6 @@ class ExpresionesListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by ExpresionesParser#type.
-    def enterType(self, ctx:ExpresionesParser.TypeContext):
-        pass
-
-    # Exit a parse tree produced by ExpresionesParser#type.
-    def exitType(self, ctx:ExpresionesParser.TypeContext):
-        pass
-
-
     # Enter a parse tree produced by ExpresionesParser#assignment.
     def enterAssignment(self, ctx:ExpresionesParser.AssignmentContext):
         pass
@@ -71,84 +62,30 @@ class ExpresionesListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by ExpresionesParser#expression.
-    def enterExpression(self, ctx:ExpresionesParser.ExpressionContext):
+    # Enter a parse tree produced by ExpresionesParser#condition.
+    def enterCondition(self, ctx:ExpresionesParser.ConditionContext):
         pass
 
-    # Exit a parse tree produced by ExpresionesParser#expression.
-    def exitExpression(self, ctx:ExpresionesParser.ExpressionContext):
-        pass
-
-
-    # Enter a parse tree produced by ExpresionesParser#logicalOrExpression.
-    def enterLogicalOrExpression(self, ctx:ExpresionesParser.LogicalOrExpressionContext):
-        pass
-
-    # Exit a parse tree produced by ExpresionesParser#logicalOrExpression.
-    def exitLogicalOrExpression(self, ctx:ExpresionesParser.LogicalOrExpressionContext):
+    # Exit a parse tree produced by ExpresionesParser#condition.
+    def exitCondition(self, ctx:ExpresionesParser.ConditionContext):
         pass
 
 
-    # Enter a parse tree produced by ExpresionesParser#logicalAndExpression.
-    def enterLogicalAndExpression(self, ctx:ExpresionesParser.LogicalAndExpressionContext):
+    # Enter a parse tree produced by ExpresionesParser#expr.
+    def enterExpr(self, ctx:ExpresionesParser.ExprContext):
         pass
 
-    # Exit a parse tree produced by ExpresionesParser#logicalAndExpression.
-    def exitLogicalAndExpression(self, ctx:ExpresionesParser.LogicalAndExpressionContext):
-        pass
-
-
-    # Enter a parse tree produced by ExpresionesParser#equalityExpression.
-    def enterEqualityExpression(self, ctx:ExpresionesParser.EqualityExpressionContext):
-        pass
-
-    # Exit a parse tree produced by ExpresionesParser#equalityExpression.
-    def exitEqualityExpression(self, ctx:ExpresionesParser.EqualityExpressionContext):
+    # Exit a parse tree produced by ExpresionesParser#expr.
+    def exitExpr(self, ctx:ExpresionesParser.ExprContext):
         pass
 
 
-    # Enter a parse tree produced by ExpresionesParser#relationalExpression.
-    def enterRelationalExpression(self, ctx:ExpresionesParser.RelationalExpressionContext):
+    # Enter a parse tree produced by ExpresionesParser#relop.
+    def enterRelop(self, ctx:ExpresionesParser.RelopContext):
         pass
 
-    # Exit a parse tree produced by ExpresionesParser#relationalExpression.
-    def exitRelationalExpression(self, ctx:ExpresionesParser.RelationalExpressionContext):
-        pass
-
-
-    # Enter a parse tree produced by ExpresionesParser#additiveExpression.
-    def enterAdditiveExpression(self, ctx:ExpresionesParser.AdditiveExpressionContext):
-        pass
-
-    # Exit a parse tree produced by ExpresionesParser#additiveExpression.
-    def exitAdditiveExpression(self, ctx:ExpresionesParser.AdditiveExpressionContext):
-        pass
-
-
-    # Enter a parse tree produced by ExpresionesParser#multiplicativeExpression.
-    def enterMultiplicativeExpression(self, ctx:ExpresionesParser.MultiplicativeExpressionContext):
-        pass
-
-    # Exit a parse tree produced by ExpresionesParser#multiplicativeExpression.
-    def exitMultiplicativeExpression(self, ctx:ExpresionesParser.MultiplicativeExpressionContext):
-        pass
-
-
-    # Enter a parse tree produced by ExpresionesParser#unaryExpression.
-    def enterUnaryExpression(self, ctx:ExpresionesParser.UnaryExpressionContext):
-        pass
-
-    # Exit a parse tree produced by ExpresionesParser#unaryExpression.
-    def exitUnaryExpression(self, ctx:ExpresionesParser.UnaryExpressionContext):
-        pass
-
-
-    # Enter a parse tree produced by ExpresionesParser#primary.
-    def enterPrimary(self, ctx:ExpresionesParser.PrimaryContext):
-        pass
-
-    # Exit a parse tree produced by ExpresionesParser#primary.
-    def exitPrimary(self, ctx:ExpresionesParser.PrimaryContext):
+    # Exit a parse tree produced by ExpresionesParser#relop.
+    def exitRelop(self, ctx:ExpresionesParser.RelopContext):
         pass
 
 

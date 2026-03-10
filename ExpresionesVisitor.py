@@ -1,6 +1,6 @@
-# Generated from Expresiones.g4 by ANTLR 4.9.2
+# Generated from Expresiones.g4 by ANTLR 4.13.2
 from antlr4 import *
-if __name__ is not None and "." in __name__:
+if "." in __name__:
     from .ExpresionesParser import ExpresionesParser
 else:
     from ExpresionesParser import ExpresionesParser
@@ -24,11 +24,6 @@ class ExpresionesVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ExpresionesParser#type.
-    def visitType(self, ctx:ExpresionesParser.TypeContext):
-        return self.visitChildren(ctx)
-
-
     # Visit a parse tree produced by ExpresionesParser#assignment.
     def visitAssignment(self, ctx:ExpresionesParser.AssignmentContext):
         return self.visitChildren(ctx)
@@ -44,48 +39,18 @@ class ExpresionesVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ExpresionesParser#expression.
-    def visitExpression(self, ctx:ExpresionesParser.ExpressionContext):
+    # Visit a parse tree produced by ExpresionesParser#condition.
+    def visitCondition(self, ctx:ExpresionesParser.ConditionContext):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ExpresionesParser#logicalOrExpression.
-    def visitLogicalOrExpression(self, ctx:ExpresionesParser.LogicalOrExpressionContext):
+    # Visit a parse tree produced by ExpresionesParser#expr.
+    def visitExpr(self, ctx:ExpresionesParser.ExprContext):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ExpresionesParser#logicalAndExpression.
-    def visitLogicalAndExpression(self, ctx:ExpresionesParser.LogicalAndExpressionContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by ExpresionesParser#equalityExpression.
-    def visitEqualityExpression(self, ctx:ExpresionesParser.EqualityExpressionContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by ExpresionesParser#relationalExpression.
-    def visitRelationalExpression(self, ctx:ExpresionesParser.RelationalExpressionContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by ExpresionesParser#additiveExpression.
-    def visitAdditiveExpression(self, ctx:ExpresionesParser.AdditiveExpressionContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by ExpresionesParser#multiplicativeExpression.
-    def visitMultiplicativeExpression(self, ctx:ExpresionesParser.MultiplicativeExpressionContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by ExpresionesParser#unaryExpression.
-    def visitUnaryExpression(self, ctx:ExpresionesParser.UnaryExpressionContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by ExpresionesParser#primary.
-    def visitPrimary(self, ctx:ExpresionesParser.PrimaryContext):
+    # Visit a parse tree produced by ExpresionesParser#relop.
+    def visitRelop(self, ctx:ExpresionesParser.RelopContext):
         return self.visitChildren(ctx)
 
 

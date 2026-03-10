@@ -3,34 +3,73 @@ from ExpresionesVisitor import ExpresionesVisitor
 class visorEvaluador(ExpresionesVisitor):
 
     def __init__(self):
-        self.memory = {}  # tabla de símbolos
+        self.memory = {}
 
-    # root
+    # programa
     def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
-    # declaración
+    # declaracion
     def visitDeclaration(self, ctx):
-        var_name = ctx.ID().getText()
+        var = ctx.VAR().getText()
+        self.memory[var] = 0
 
-        if ctx.expression():
-            value = self.visit(ctx.expression())
-            self.memory[var_name] = value
-        else:
-            self.memory[var_name] = 0
+    # condicion
+    def visitCondition(self, ctx):
 
-    # asignación
+        # NOT
+        if ctx.NOT():
+            return not self.visit(ctx.condition(0))
+
+        # AND
+        if ctx.AND():
+            left = self.visit(ctx.condition(0))
+            right = self.visit(ctx.condition(1))
+            return left and right
+
+        # OR
+        if ctx.OR():
+            left = self.visit(ctx.condition(0))
+            right = self.visit(ctx.condition(1))
+            return left or right
+
+        # Comparación relacional
+        if ctx.relop():
+
+            left = self.visit(ctx.expr(0))
+            right = self.visit(ctx.expr(1))
+            op = ctx.relop().getText()
+
+            if op == ">":
+                return left > right
+            if op == "<":
+                return left < right
+            if op == ">=":
+                return left >= right
+            if op == "<=":
+                return left <= right
+            if op == "==":
+                return left == right
+            if op == "!=":
+                return left != right
+
+        # paréntesis
+        if ctx.condition():
+            return self.visit(ctx.condition(0))
+
+    # asignacion
     def visitAssignment(self, ctx):
-        var_name = ctx.ID().getText()
-        value = self.visit(ctx.expression())
-        self.memory[var_name] = value
+        var = ctx.VAR().getText()
+        value = self.visit(ctx.expr())
+        self.memory[var] = value
 
-    # IF
+    # if
     def visitIfStatement(self, ctx):
-        condition = self.visit(ctx.expression())
 
-        if condition:
+        cond = self.visit(ctx.condition())
+
+        if cond:
             self.visit(ctx.block(0))
         elif ctx.block(1):
             self.visit(ctx.block(1))
@@ -40,40 +79,29 @@ class visorEvaluador(ExpresionesVisitor):
         for stmt in ctx.statement():
             self.visit(stmt)
 
-    # EXPRESIONES
-    def visitAdditiveExpression(self, ctx):
-        result = self.visit(ctx.multiplicativeExpression(0))
+    # expresiones
+    def visitExpr(self, ctx):
 
-        for i in range(1, len(ctx.multiplicativeExpression())):
-            right = self.visit(ctx.multiplicativeExpression(i))
-            op = ctx.getChild(2*i - 1).getText()
-
-            if op == '+':
-                result += right
-            else:
-                result -= right
-
-        return result
-
-    def visitMultiplicativeExpression(self, ctx):
-        result = self.visit(ctx.unaryExpression(0))
-
-        for i in range(1, len(ctx.unaryExpression())):
-            right = self.visit(ctx.unaryExpression(i))
-            op = ctx.getChild(2*i - 1).getText()
-
-            if op == '*':
-                result *= right
-            else:
-                result /= right
-
-        return result
-
-    def visitPrimary(self, ctx):
         if ctx.NUM():
             return int(ctx.NUM().getText())
-        elif ctx.ID():
-            var_name = ctx.ID().getText()
-            return self.memory.get(var_name, 0)
-        else:
-            return self.visit(ctx.expression())
+
+        if ctx.VAR():
+            return self.memory.get(ctx.VAR().getText(), 0)
+
+        if ctx.getChildCount() == 3:
+
+            if ctx.getChild(0).getText() == "(":
+                return self.visit(ctx.expr(0))
+
+            left = self.visit(ctx.expr(0))
+            right = self.visit(ctx.expr(1))
+            op = ctx.getChild(1).getText()
+
+            if op == "+":
+                return left + right
+            if op == "-":
+                return left - right
+            if op == "*":
+                return left * right
+            if op == "/":
+                return left / right

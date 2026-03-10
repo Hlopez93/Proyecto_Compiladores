@@ -1,8 +1,10 @@
 program {
+
     var int x;
     var int y;
     var int w;
     var int z;
+
     x = 10;
     y = 20;
     z = x + y * 2;
@@ -12,4 +14,5 @@ program {
     } else {
         w = z - 5;
     }
+
 }

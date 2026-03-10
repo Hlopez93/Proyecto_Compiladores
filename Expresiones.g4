@@ -1,54 +1,76 @@
 grammar Expresiones;
 
-// REGLA INICIAL
-root : ID '{' statement* '}' EOF ;
+// PROGRAMA
+root : PROGRAM LLA statement* LLC EOF ;
 
 // SENTENCIAS
-statement : declaration ';'
-    | assignment ';'
+statement : declaration
+    | assignment
     | ifStatement
     ;
 
-// DECLARACIÓN
-declaration : VAR type ID ('=' expression)? ;
+// DECLARACION
+declaration : TVAR INT VAR ';' ;
 
-type : INT ;
+// ASIGNACION
+assignment : VAR ASIG expr ';' ;
 
-// ASIGNACIÓN
-assignment : ID '=' expression ;
+// IF
+ifStatement : IF PAI condition PAD block (ELSE block)? ;
 
-// IF / ELSE
-ifStatement : 'if' '(' expression ')' block ('else' block)? ;
+// ESTRUCTURA DE BLOQUE
+block : LLA statement* LLC ;
 
-block : '{' statement* '}' ;
-
-// EXPRESIONES (con precedencia)
-expression : logicalOrExpression ;
-
-logicalOrExpression : logicalAndExpression ( '||' logicalAndExpression )* ;
-
-logicalAndExpression : equalityExpression ( '&&' equalityExpression )* ;
-
-equalityExpression : relationalExpression ( ('==' | '!=' | '<>') relationalExpression )* ;
-
-relationalExpression : additiveExpression ( ('<' | '>' | '<=' | '>=') additiveExpression )* ;
-
-additiveExpression : multiplicativeExpression ( ('+' | '-') multiplicativeExpression )* ;
-
-multiplicativeExpression : unaryExpression ( ('*' | '/') unaryExpression )* ;
-
-unaryExpression : '!' unaryExpression
-    | primary
+// CONDICION
+condition : condition AND condition
+    | condition OR condition
+    | NOT condition
+    | expr relop expr
+    | PAI condition PAD
     ;
 
-primary : NUM
-    | ID
-    | '(' expression ')'
+// EXPRESIONES
+expr : PAI expr PAD
+    | expr (MUL | DIV) expr
+    | expr (SUM | RES) expr
+    | NUM
+    | VAR
+    ;
+
+// OPERADORES RELACIONALES
+relop : '>'
+    | '<'
+    | '>='
+    | '<='
+    | '=='
+    | '!='
     ;
 
 // TOKENS
-VAR : 'var' ;
-NUM : [0-9]+ ;
-ID : [a-zA-Z_][a-zA-Z_0-9]* ;
+PROGRAM : 'program' ;
+TVAR : 'var' ;
 INT : 'int' ;
+IF : 'if' ;
+ELSE : 'else' ;
+
+ASIG : '=' ;
+
+SUM : '+' ;
+RES : '-' ;
+MUL : '*' ;
+DIV : '/' ;
+
+AND : '&&' ;
+OR  : '||' ;
+NOT : '!' ;
+
+PAI : '(' ;
+PAD : ')' ;
+
+LLA : '{' ;
+LLC : '}' ;
+
+NUM : [0-9]+ ;
+VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
+
 WS : [ \t\r\n]+ -> skip ;

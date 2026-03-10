@@ -4,39 +4,23 @@ from ExpresionesParser import ExpresionesParser
 from visorEvaluador import visorEvaluador
 from antlr4.error.ErrorListener import ErrorListener
 
+def ejecutar_archivo(nombre):
 
-class MyErrorListener(ErrorListener):
-    def __init__(self):
-        super().__init__()
-        self.errors = 0
+    input_stream = FileStream(nombre)
 
-    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        self.errors += 1
-        print(f"Error en línea {line}, columna {column}: {msg}")
-
-
-def analizar_archivo(nombre_archivo):
-    input_stream = FileStream(nombre_archivo)
     lexer = ExpresionesLexer(input_stream)
     stream = CommonTokenStream(lexer)
     parser = ExpresionesParser(stream)
 
-    parser.removeErrorListeners()
-    error_listener = MyErrorListener()
-    parser.addErrorListener(error_listener)
-
     tree = parser.root()
 
-    if error_listener.errors == 0:
-        print("Programa válido")
+    visitor = visorEvaluador()
+    visitor.visit(tree)
 
-        visitor = visorEvaluador()
-        visitor.visit(tree)
-
-        print("Resultado:", visitor.memory)
-    else:
-        print("Programa inválido")
+    print("Resultado final variables:")
+    print(visitor.memory)
 
 
 if __name__ == "__main__":
-    analizar_archivo("programa.txt")
+
+    ejecutar_archivo("programa.txt")
