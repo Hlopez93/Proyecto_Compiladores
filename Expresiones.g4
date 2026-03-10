@@ -32,21 +32,9 @@ condition
     ;
 
 // EXPRESIONES
-
-expr
-    : expr SUM term
-    | expr RES term
-    | term
-    ;
-
-term
-    : term MUL factor
-    | term DIV factor
-    | factor
-    ;
-
-factor
-    : PAI expr PAD
+expr : PAI expr PAD
+    | expr (MUL | DIV) expr
+    | expr (SUM | RES) expr
     | NUM
     | VAR
     ;
