@@ -20,7 +20,6 @@ def ejecutar_archivo(nombre):
     print("Resultado final variables:")
     print(visitor.memory)
 
-
 if __name__ == "__main__":
 
     ejecutar_archivo("programa.txt")

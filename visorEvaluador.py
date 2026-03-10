@@ -17,7 +17,6 @@ class visorEvaluador(ExpresionesVisitor):
 
     # condicion
     def visitCondition(self, ctx):
-
         # NOT
         if ctx.NOT():
             return not self.visit(ctx.condition(0))
@@ -66,7 +65,6 @@ class visorEvaluador(ExpresionesVisitor):
 
     # if
     def visitIfStatement(self, ctx):
-
         cond = self.visit(ctx.condition())
 
         if cond:
@@ -81,7 +79,6 @@ class visorEvaluador(ExpresionesVisitor):
 
     # expresiones
     def visitExpr(self, ctx):
-
         if ctx.NUM():
             return int(ctx.NUM().getText())
 
