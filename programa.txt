@@ -3,7 +3,7 @@ program {
     var int x;
     var int y;
     var int w;
-    var int z;
+    let int z;
 
     x = 10;
     y = 20;
@@ -14,5 +14,7 @@ program {
     } else {
         w = z - 5;
     }
+
+    print(w);
 
 }

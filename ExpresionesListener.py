@@ -35,6 +35,15 @@ class ExpresionesListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by ExpresionesParser#tipo.
+    def enterTipo(self, ctx:ExpresionesParser.TipoContext):
+        pass
+
+    # Exit a parse tree produced by ExpresionesParser#tipo.
+    def exitTipo(self, ctx:ExpresionesParser.TipoContext):
+        pass
+
+
     # Enter a parse tree produced by ExpresionesParser#assignment.
     def enterAssignment(self, ctx:ExpresionesParser.AssignmentContext):
         pass
@@ -50,6 +59,69 @@ class ExpresionesListener(ParseTreeListener):
 
     # Exit a parse tree produced by ExpresionesParser#ifStatement.
     def exitIfStatement(self, ctx:ExpresionesParser.IfStatementContext):
+        pass
+
+
+    # Enter a parse tree produced by ExpresionesParser#whileStatement.
+    def enterWhileStatement(self, ctx:ExpresionesParser.WhileStatementContext):
+        pass
+
+    # Exit a parse tree produced by ExpresionesParser#whileStatement.
+    def exitWhileStatement(self, ctx:ExpresionesParser.WhileStatementContext):
+        pass
+
+
+    # Enter a parse tree produced by ExpresionesParser#forStatement.
+    def enterForStatement(self, ctx:ExpresionesParser.ForStatementContext):
+        pass
+
+    # Exit a parse tree produced by ExpresionesParser#forStatement.
+    def exitForStatement(self, ctx:ExpresionesParser.ForStatementContext):
+        pass
+
+
+    # Enter a parse tree produced by ExpresionesParser#functionDecl.
+    def enterFunctionDecl(self, ctx:ExpresionesParser.FunctionDeclContext):
+        pass
+
+    # Exit a parse tree produced by ExpresionesParser#functionDecl.
+    def exitFunctionDecl(self, ctx:ExpresionesParser.FunctionDeclContext):
+        pass
+
+
+    # Enter a parse tree produced by ExpresionesParser#paramList.
+    def enterParamList(self, ctx:ExpresionesParser.ParamListContext):
+        pass
+
+    # Exit a parse tree produced by ExpresionesParser#paramList.
+    def exitParamList(self, ctx:ExpresionesParser.ParamListContext):
+        pass
+
+
+    # Enter a parse tree produced by ExpresionesParser#param.
+    def enterParam(self, ctx:ExpresionesParser.ParamContext):
+        pass
+
+    # Exit a parse tree produced by ExpresionesParser#param.
+    def exitParam(self, ctx:ExpresionesParser.ParamContext):
+        pass
+
+
+    # Enter a parse tree produced by ExpresionesParser#returnStmt.
+    def enterReturnStmt(self, ctx:ExpresionesParser.ReturnStmtContext):
+        pass
+
+    # Exit a parse tree produced by ExpresionesParser#returnStmt.
+    def exitReturnStmt(self, ctx:ExpresionesParser.ReturnStmtContext):
+        pass
+
+
+    # Enter a parse tree produced by ExpresionesParser#printStmt.
+    def enterPrintStmt(self, ctx:ExpresionesParser.PrintStmtContext):
+        pass
+
+    # Exit a parse tree produced by ExpresionesParser#printStmt.
+    def exitPrintStmt(self, ctx:ExpresionesParser.PrintStmtContext):
         pass
 
 
@@ -77,6 +149,24 @@ class ExpresionesListener(ParseTreeListener):
 
     # Exit a parse tree produced by ExpresionesParser#expr.
     def exitExpr(self, ctx:ExpresionesParser.ExprContext):
+        pass
+
+
+    # Enter a parse tree produced by ExpresionesParser#functionCall.
+    def enterFunctionCall(self, ctx:ExpresionesParser.FunctionCallContext):
+        pass
+
+    # Exit a parse tree produced by ExpresionesParser#functionCall.
+    def exitFunctionCall(self, ctx:ExpresionesParser.FunctionCallContext):
+        pass
+
+
+    # Enter a parse tree produced by ExpresionesParser#argList.
+    def enterArgList(self, ctx:ExpresionesParser.ArgListContext):
+        pass
+
+    # Exit a parse tree produced by ExpresionesParser#argList.
+    def exitArgList(self, ctx:ExpresionesParser.ArgListContext):
         pass
 
 
