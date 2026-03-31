@@ -5,9 +5,10 @@ from ExpresionesParser import ExpresionesParser
 from visitorInterprete import InterpreterVisitor
 from visitorSemantico import SemanticVisitor
 
+
 def ejecutar_archivo(nombre):
 
-    input_stream = FileStream(nombre)
+    input_stream = FileStream(nombre, encoding='utf-8')
 
     # ----------- LEXER -----------
     lexer = ExpresionesLexer(input_stream)
@@ -19,7 +20,7 @@ def ejecutar_archivo(nombre):
 
     # DETENER SI HAY ERRORES SINTÁCTICOS
     if parser.getNumberOfSyntaxErrors() > 0:
-        print("Errores sintácticos encontrados. Ejecución detenida.")
+        print(" Errores sintácticos encontrados. Ejecución detenida.")
         return
 
     # ----------- SEMÁNTICO -----------
@@ -27,15 +28,21 @@ def ejecutar_archivo(nombre):
     try:
         semantico.visit(tree)
     except Exception as e:
-        print("Error semántico:", e)
+        print(" Error semántico:", e)
         return
 
     # ----------- INTÉRPRETE -----------
-    visitor = InterpreterVisitor(semantico.tabla)
-    visitor.visit(tree)
+    interprete = InterpreterVisitor()  # NO pasar tabla
 
-    print("Resultado final variables:")
-    print(visitor.memory)
+    try:
+        interprete.visit(tree)
+    except Exception as e:
+        print(" Error en ejecución:", e)
+        return
+
+    # ----------- DEBUG FINAL (OPCIONAL) -----------
+    print("\n Estado final de variables:")
+    print(interprete.tabla.scopes)
 
 
 if __name__ == "__main__":

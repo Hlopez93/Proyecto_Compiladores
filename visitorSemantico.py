@@ -6,144 +6,151 @@ class SemanticVisitor(ExpresionesVisitor):
 
     def __init__(self):
         self.tabla = TablaSimbolos()
+        self.current_function = None
 
-    # ---------------- PROGRAMA ----------------
-    def visitRoot(self, ctx: ExpresionesParser.RootContext):
+    def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
-    # ---------------- DECLARACION ----------------
-    def visitDeclaration(self, ctx: ExpresionesParser.DeclarationContext):
+    def visitBlock(self, ctx):
+        self.tabla.push_scope()
+        for stmt in ctx.statement():
+            self.visit(stmt)
+        self.tabla.pop_scope()
+
+    def visitDeclaration(self, ctx):
         nombre = ctx.VAR().getText()
         tipo = ctx.tipo().getText()
 
-        # Validar si ya existe en el scope actual
-        scope_actual = self.tabla.scopes[-1]
-        if nombre in scope_actual:
-            raise Exception(f"Error: Variable '{nombre}' ya declarada en este ámbito")
-
-        # Evaluar expresión si existe
-        valor = None
         if ctx.expr():
-            valor = self.visit(ctx.expr())
+            tipo_expr = self.visit(ctx.expr())
+            if tipo_expr != tipo:
+                raise Exception("Error semántico: tipos incompatibles en declaración")
 
-        # Guardar en tabla
-        self.tabla.declarar(nombre, tipo, valor)
+        self.tabla.declarar(nombre, tipo)
 
-    # ---------------- ASIGNACION ----------------
-    def visitAssignment(self, ctx: ExpresionesParser.AssignmentContext):
+    def visitAssignment(self, ctx):
         nombre = ctx.VAR().getText()
+        var = self.tabla.obtener(nombre)
 
-        # Verificar que exista
-        simbolo = self.tabla.obtener(nombre)
+        tipo_expr = self.visit(ctx.expr())
 
-        # Evaluar valor
-        valor = self.visit(ctx.expr())
+        if var["tipo"] != tipo_expr:
+            raise Exception("Error semántico: tipos incompatibles en asignación")
 
-        # Asignar
-        self.tabla.asignar(nombre, valor)
+    def visitFunctionDecl(self, ctx):
+        nombre = ctx.VAR().getText()
+        tipo_retorno = ctx.tipo().getText()
 
-    # ---------------- BLOQUES ----------------
-    def visitBlock(self, ctx: ExpresionesParser.BlockContext):
+        parametros = []
+        if ctx.paramList():
+            for p in ctx.paramList().param():
+                parametros.append((p.VAR().getText(), p.tipo().getText()))
+
+        self.tabla.declarar_funcion(nombre, tipo_retorno, parametros, ctx)
+
+        prev = self.current_function
+        self.current_function = tipo_retorno
+
         self.tabla.push_scope()
+        for n, t in parametros:
+            self.tabla.declarar(n, t)
 
-        for stmt in ctx.statement():
-            self.visit(stmt)
+        self.visit(ctx.block())
 
         self.tabla.pop_scope()
+        self.current_function = prev
 
-    # ---------------- IF ----------------
-    def visitIfStatement(self, ctx: ExpresionesParser.IfStatementContext):
-        self.visit(ctx.condition())
+    def visitReturnStmt(self, ctx):
+        if self.current_function is None:
+            raise Exception("Error semántico: return fuera de función")
+
+        if ctx.expr():
+            tipo_expr = self.visit(ctx.expr())
+            if tipo_expr != self.current_function:
+                raise Exception("Error semántico: tipo de retorno incorrecto")
+        else:
+            if self.current_function != "void":
+                raise Exception("Error semántico: return vacío en función no void")
+
+    def visitFunctionCall(self, ctx):
+        nombre = ctx.VAR().getText()
+        func = self.tabla.obtener_funcion(nombre)
+
+        args = []
+        if ctx.argList():
+            args = [self.visit(e) for e in ctx.argList().expr()]
+
+        if len(args) != len(func["parametros"]):
+            raise Exception("Error: número incorrecto de argumentos")
+
+        for i, (n, t) in enumerate(func["parametros"]):
+            if args[i] != t:
+                raise Exception("Error: tipo de argumento incorrecto")
+
+        return func["retorno"]
+
+    def visitIfStatement(self, ctx):
+        if self.visit(ctx.condition()) != "bool":
+            raise Exception("Error: condición de if debe ser bool")
+
         self.visit(ctx.block(0))
-
         if ctx.ELSE():
             self.visit(ctx.block(1))
 
-    # ---------------- WHILE ----------------
-    def visitWhileStatement(self, ctx: ExpresionesParser.WhileStatementContext):
-        self.visit(ctx.condition())
+    def visitWhileStatement(self, ctx):
+        if self.visit(ctx.condition()) != "bool":
+            raise Exception("Error: condición de while debe ser bool")
+
         self.visit(ctx.block())
 
-    # ---------------- FOR ----------------
-    def visitForStatement(self, ctx: ExpresionesParser.ForStatementContext):
+    def visitForStatement(self, ctx):
+        if ctx.condition() and self.visit(ctx.condition()) != "bool":
+            raise Exception("Error: condición de for debe ser bool")
+        self.visit(ctx.block())
 
-        self.tabla.push_scope()
+    def visitCondition(self, ctx):
+        if ctx.AND() or ctx.OR():
+            if self.visit(ctx.condition(0)) != "bool" or self.visit(ctx.condition(1)) != "bool":
+                raise Exception("Error: operadores lógicos requieren booleanos")
+            return "bool"
 
-        if ctx.declaration():
-            self.visit(ctx.declaration())
-        elif ctx.assignment():
-            self.visit(ctx.assignment())
+        if ctx.NOT():
+            if self.visit(ctx.condition(0)) != "bool":
+                raise Exception("Error: NOT requiere booleano")
+            return "bool"
+
+        if ctx.relop():
+            if self.visit(ctx.expr(0)) != self.visit(ctx.expr(1)):
+                raise Exception("Error: comparación inválida")
+            return "bool"
+
+        if ctx.TRUE() or ctx.FALSE():
+            return "bool"
 
         if ctx.condition():
-            self.visit(ctx.condition())
+            return self.visit(ctx.condition(0))
 
-        if ctx.assignment():
-            self.visit(ctx.assignment())
+    def visitExpr(self, ctx):
+        if ctx.NUM(): return "int"
+        if ctx.FLOAT(): return "float"
+        if ctx.STRING(): return "string"
+        if ctx.TRUE() or ctx.FALSE(): return "bool"
 
-        self.visit(ctx.block())
-
-        self.tabla.pop_scope()
-
-    # ---------------- PRINT ----------------
-    def visitPrintStmt(self, ctx: ExpresionesParser.PrintStmtContext):
-        self.visit(ctx.expr())
-
-    # ---------------- CONDICIONES ----------------
-    def visitCondition(self, ctx: ExpresionesParser.ConditionContext):
-
-        if ctx.AND():
-            self.visit(ctx.condition(0))
-            self.visit(ctx.condition(1))
-
-        elif ctx.OR():
-            self.visit(ctx.condition(0))
-            self.visit(ctx.condition(1))
-
-        elif ctx.NOT():
-            self.visit(ctx.condition(0))
-
-        elif ctx.relop():
-            self.visit(ctx.expr(0))
-            self.visit(ctx.expr(1))
-
-        elif ctx.condition():
-            self.visit(ctx.condition(0))
-
-    # ---------------- EXPRESIONES ----------------
-    def visitExpr(self, ctx: ExpresionesParser.ExprContext):
-
-        # Paréntesis
-        if ctx.expr() and ctx.getChildCount() == 3 and ctx.getChild(0).getText() == '(':
-            return self.visit(ctx.expr(0))
-
-        # Operaciones binarias
-        if len(ctx.expr()) == 2:
-            left = self.visit(ctx.expr(0))
-            right = self.visit(ctx.expr(1))
-            return left  # (solo validación, no cálculo real aquí)
-
-        # Literales
-        if ctx.NUM():
-            return int(ctx.NUM().getText())
-
-        if ctx.FLOAT():
-            return float(ctx.FLOAT().getText())
-
-        if ctx.STRING():
-            return ctx.STRING().getText()
-
-        if ctx.TRUE():
-            return True
-
-        if ctx.FALSE():
-            return False
-
-        # Variable
         if ctx.VAR():
-            simbolo = self.tabla.obtener(ctx.VAR().getText())
-            return simbolo["valor"]
+            return self.tabla.obtener(ctx.VAR().getText())["tipo"]
 
-        # Función (placeholder)
         if ctx.functionCall():
-            return None
+            return self.visit(ctx.functionCall())
+
+        if len(ctx.expr()) == 2:
+            t1 = self.visit(ctx.expr(0))
+            t2 = self.visit(ctx.expr(1))
+
+            if t1 != t2:
+                raise Exception("Error: operación entre tipos incompatibles")
+
+            return t1
+
+        if ctx.expr():
+            return self.visit(ctx.expr(0))

@@ -1,20 +1,19 @@
 program {
-
-    var int x;
-    var int y;
-    var int w;
-    let int z;
-
-    x = 10;
-    y = 20;
-    z = x + y * 2;
-
-    if (z > 30) {
-        w = z / 2;
-    } else {
-        w = z - 5;
+    var int x = 10;
+    var string prefijo = "El resultado es: ";
+    
+    function int factorial(int n) {
+        if (n <= 1) {
+            return 1;
+        } else {
+            return n * factorial(n - 1);
+        }
     }
-
-    print(w);
-
+    
+    while (x > 0) {
+        let int temp = factorial(x);
+        print(prefijo);
+        print(temp);
+        x = x - 2;
+    }
 }
