@@ -19,6 +19,19 @@ class SemanticVisitor(ExpresionesVisitor):
         self.tabla.pop_scope()
 
     def visitDeclaration(self, ctx):
+        stmt = ctx.declarationStatement()
+
+        nombre = stmt.VAR().getText()
+        tipo = stmt.tipo().getText()
+
+        if stmt.expr():
+            tipo_expr = self.visit(stmt.expr())
+            if tipo_expr != tipo:
+                raise Exception("Error semántico: tipos incompatibles en declaración")
+
+        self.tabla.declarar(nombre, tipo)
+
+    def visitDeclarationStatement(self, ctx):
         nombre = ctx.VAR().getText()
         tipo = ctx.tipo().getText()
 
@@ -30,6 +43,17 @@ class SemanticVisitor(ExpresionesVisitor):
         self.tabla.declarar(nombre, tipo)
 
     def visitAssignment(self, ctx):
+        stmt = ctx.assignmentStatement()
+
+        nombre = stmt.VAR().getText()
+        var = self.tabla.obtener(nombre)
+
+        tipo_expr = self.visit(stmt.expr())
+
+        if var["tipo"] != tipo_expr:
+            raise Exception("Error semántico: tipos incompatibles en asignación")
+        
+    def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
         var = self.tabla.obtener(nombre)
 
@@ -105,9 +129,31 @@ class SemanticVisitor(ExpresionesVisitor):
         self.visit(ctx.block())
 
     def visitForStatement(self, ctx):
-        if ctx.condition() and self.visit(ctx.condition()) != "bool":
-            raise Exception("Error: condición de for debe ser bool")
-        self.visit(ctx.block())
+        self.tabla.push_scope()
+
+        # INIT
+        if ctx.forInit():
+            if ctx.forInit().declarationStatement():
+                self.visit(ctx.forInit().declarationStatement())
+            else:
+                self.visit(ctx.forInit().assignmentStatement())
+
+        # CONDITION
+        if ctx.condition():
+            if self.visit(ctx.condition()) != "bool":
+                raise Exception("Error: condición de for debe ser bool")
+
+        # BODY
+        self.tabla.push_scope()
+        for stmt in ctx.block().statement():
+            self.visit(stmt)
+        self.tabla.pop_scope()
+
+        # UPDATE
+        if ctx.forUpdate():
+            self.visit(ctx.forUpdate().assignmentStatement())
+
+        self.tabla.pop_scope()
 
     def visitCondition(self, ctx):
         if ctx.AND() or ctx.OR():

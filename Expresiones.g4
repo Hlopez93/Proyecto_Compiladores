@@ -15,7 +15,8 @@ statement : declaration
     ;
 
 // DECLARACION
-declaration : TVAR tipo VAR (ASIG expr)? ';' ;
+declaration : declarationStatement ';' ;
+declarationStatement : TVAR tipo VAR (ASIG expr)? ;
 
 // TIPOS
 tipo : INT 
@@ -26,7 +27,8 @@ tipo : INT
      ;
 
 // ASIGNACION
-assignment : VAR ASIG expr ';' ;
+assignment : assignmentStatement ';' ;
+assignmentStatement : VAR ASIG expr ;
 
 // IF
 ifStatement : IF PAI condition PAD block (ELSE block)? ;
@@ -35,7 +37,10 @@ ifStatement : IF PAI condition PAD block (ELSE block)? ;
 whileStatement : WHILE PAI condition PAD block ;
 
 // FOR
-forStatement : FOR PAI (declaration | assignment)? condition? ';' assignment? PAD block ;
+forStatement : FOR PAI forInit? ';' condition? ';' forUpdate? PAD block ;
+
+forInit : declarationStatement | assignmentStatement ;
+forUpdate : assignmentStatement ;
 
 // FUNCIONES
 functionDecl : FUNCTION tipo VAR PAI paramList? PAD block ;
@@ -142,4 +147,9 @@ VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 WS : [ \t\r\n]+ -> skip ;
 
 // ERROR LEXICO
-ERROR_CHAR : . ;
+ERROR_CHAR 
+    : . 
+    {
+        raise Exception(f"[Error Léxico] Línea {self.line}, Columna {self.column}: Símbolo no reconocido '{self.text}'")
+    }
+;

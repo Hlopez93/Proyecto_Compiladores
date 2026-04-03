@@ -24,6 +24,11 @@ class ExpresionesVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by ExpresionesParser#declarationStatement.
+    def visitDeclarationStatement(self, ctx:ExpresionesParser.DeclarationStatementContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by ExpresionesParser#tipo.
     def visitTipo(self, ctx:ExpresionesParser.TipoContext):
         return self.visitChildren(ctx)
@@ -31,6 +36,11 @@ class ExpresionesVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by ExpresionesParser#assignment.
     def visitAssignment(self, ctx:ExpresionesParser.AssignmentContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ExpresionesParser#assignmentStatement.
+    def visitAssignmentStatement(self, ctx:ExpresionesParser.AssignmentStatementContext):
         return self.visitChildren(ctx)
 
 
@@ -46,6 +56,16 @@ class ExpresionesVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by ExpresionesParser#forStatement.
     def visitForStatement(self, ctx:ExpresionesParser.ForStatementContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ExpresionesParser#forInit.
+    def visitForInit(self, ctx:ExpresionesParser.ForInitContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by ExpresionesParser#forUpdate.
+    def visitForUpdate(self, ctx:ExpresionesParser.ForUpdateContext):
         return self.visitChildren(ctx)
 
 

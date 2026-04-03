@@ -22,6 +22,16 @@ class InterpreterVisitor(ExpresionesVisitor):
         self.tabla.pop_scope()
 
     def visitDeclaration(self, ctx):
+        nombre = ctx.declarationStatement().VAR().getText()
+        tipo = ctx.declarationStatement().tipo().getText()
+
+        valor = None
+        if ctx.declarationStatement().expr():
+            valor = self.visit(ctx.declarationStatement().expr())
+
+        self.tabla.declarar(nombre, tipo, valor)
+
+    def visitDeclarationStatement(self, ctx):
         nombre = ctx.VAR().getText()
         tipo = ctx.tipo().getText()
 
@@ -32,7 +42,13 @@ class InterpreterVisitor(ExpresionesVisitor):
         self.tabla.declarar(nombre, tipo, valor)
 
     def visitAssignment(self, ctx):
-        self.tabla.asignar(ctx.VAR().getText(), self.visit(ctx.expr()))
+        stmt = ctx.assignmentStatement()
+        self.tabla.asignar(stmt.VAR().getText(), self.visit(stmt.expr()))
+
+    def visitAssignmentStatement(self, ctx):
+        nombre = ctx.VAR().getText()
+        valor = self.visit(ctx.expr())
+        self.tabla.asignar(nombre, valor)
 
     def visitFunctionDecl(self, ctx):
         nombre = ctx.VAR().getText()
@@ -81,16 +97,26 @@ class InterpreterVisitor(ExpresionesVisitor):
             self.visit(ctx.block())
 
     def visitForStatement(self, ctx):
-        if ctx.declaration(): self.visit(ctx.declaration())
-        elif ctx.assignment(): self.visit(ctx.assignment())
+        self.tabla.push_scope()
+
+        if ctx.forInit():
+            if ctx.forInit().declarationStatement(): self.visit(ctx.forInit().declarationStatement())
+            else: self.visit(ctx.forInit().assignmentStatement())
 
         while True:
-            if ctx.condition() and not self.visit(ctx.condition()):
-                break
+            if ctx.condition():
+                if not self.visit(ctx.condition()):
+                    break
 
-            self.visit(ctx.block())
+            # IMPORTANTE: ejecutar el block SIN perder acceso a 'i'
+            for stmt in ctx.block().statement():
+                self.visit(stmt)
 
-            if ctx.assignment(): self.visit(ctx.assignment())
+            # UPDATE
+            if ctx.forUpdate():
+                self.visit(ctx.forUpdate().assignmentStatement())
+
+        self.tabla.pop_scope()
 
     def visitCondition(self, ctx):
         if ctx.AND(): return self.visit(ctx.condition(0)) and self.visit(ctx.condition(1))
@@ -140,3 +166,8 @@ class InterpreterVisitor(ExpresionesVisitor):
 
         if ctx.expr():
             return self.visit(ctx.expr(0))
+
+    def visitPrintStmt(self, ctx):
+        valor = self.visit(ctx.expr())
+        print(valor)
+        return

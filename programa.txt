@@ -1,19 +1,5 @@
 program {
-    var int x = 10;
-    var string prefijo = "El resultado es: ";
-    
-    function int factorial(int n) {
-        if (n <= 1) {
-            return 1;
-        } else {
-            return n * factorial(n - 1);
-        }
-    }
-    
-    while (x > 0) {
-        let int temp = factorial(x);
-        print(prefijo);
-        print(temp);
-        x = x - 2;
+    for (let int i = 0; i < 6; i = i + 1) {
+        print(i);
     }
 }

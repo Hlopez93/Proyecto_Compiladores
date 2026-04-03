@@ -5,9 +5,9 @@ from ExpresionesParser import ExpresionesParser
 from visitorInterprete import InterpreterVisitor
 from visitorSemantico import SemanticVisitor
 
+from customErrorListener import CustomErrorListener
 
 def ejecutar_archivo(nombre):
-
     input_stream = FileStream(nombre, encoding='utf-8')
 
     # ----------- LEXER -----------
@@ -16,9 +16,13 @@ def ejecutar_archivo(nombre):
 
     # ----------- PARSER -----------
     parser = ExpresionesParser(stream)
+
+    parser.removeErrorListeners()
+    parser.addErrorListener(CustomErrorListener())
+
     tree = parser.root()
 
-    # DETENER SI HAY ERRORES SINTÁCTICOS
+    # SE DETIENE SI HAY ERRORES SINTÁCTICOS
     if parser.getNumberOfSyntaxErrors() > 0:
         print(" Errores sintácticos encontrados. Ejecución detenida.")
         return
@@ -32,7 +36,7 @@ def ejecutar_archivo(nombre):
         return
 
     # ----------- INTÉRPRETE -----------
-    interprete = InterpreterVisitor()  # NO pasar tabla
+    interprete = InterpreterVisitor()
 
     try:
         interprete.visit(tree)
@@ -40,10 +44,12 @@ def ejecutar_archivo(nombre):
         print(" Error en ejecución:", e)
         return
 
-    # ----------- DEBUG FINAL (OPCIONAL) -----------
-    print("\n Estado final de variables:")
-    print(interprete.tabla.scopes)
-
+"""     # ----------- DEBUG FINAL -----------
+    print("Estado final de variables:")
+    global_scope = interprete.tabla.scopes[0]
+    for nombre, info in global_scope.items():
+        if info["tipo"] != "function":
+            print(f"{nombre} = {info['valor']}") """
 
 if __name__ == "__main__":
     ejecutar_archivo("programa.txt")
