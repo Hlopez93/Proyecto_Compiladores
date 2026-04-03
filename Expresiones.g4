@@ -4,25 +4,31 @@ grammar Expresiones;
 root : PROGRAM LLA statement* LLC EOF ;
 
 // SENTENCIAS
-statement 
-    : declaration
+statement : declaration
     | assignment
     | ifStatement
+    | whileStatement
+    | forStatement
+    | functionDecl
+    | returnStmt
+    | printStmt
     ;
 
 // DECLARACION
-declaration : TVAR tipo VAR (ASIG expr)? ';' ;
+declaration : declarationStatement ';' ;
+declarationStatement : TVAR tipo VAR (ASIG expr)? ;
 
-// NUEVA REGLA DE TIPOS
-tipo 
-    : INT 
-    | FLOAT 
-    | STRING 
-    | BOOL 
-    ;
+// TIPOS
+tipo : INT 
+     | FLOAT_T 
+     | STRING_T 
+     | BOOL 
+     | VOID 
+     ;
 
 // ASIGNACION
-assignment : VAR ASIG expr ';' ;
+assignment : assignmentStatement ';' ;
+assignmentStatement : VAR ASIG expr ;
 
 // IF
 ifStatement : IF PAI condition PAD block (ELSE block)? ;
@@ -31,7 +37,10 @@ ifStatement : IF PAI condition PAD block (ELSE block)? ;
 whileStatement : WHILE PAI condition PAD block ;
 
 // FOR
-forStatement : FOR PAI (declaration | assignment)? condition? ';' assignment? PAD block ;
+forStatement : FOR PAI forInit? ';' condition? ';' forUpdate? PAD block ;
+
+forInit : declarationStatement | assignmentStatement ;
+forUpdate : assignmentStatement ;
 
 // FUNCIONES
 functionDecl : FUNCTION tipo VAR PAI paramList? PAD block ;
@@ -48,30 +57,37 @@ printStmt : PRINT PAI expr PAD ';' ;
 // ESTRUCTURA DE BLOQUE
 block : LLA statement* LLC ;
 
-// CONDICIÓN
-condition 
-    : condition AND condition
+// CONDICION
+condition : condition AND condition
     | condition OR condition
     | NOT condition
     | expr relop expr
+    | TRUE
+    | FALSE
     | PAI condition PAD
     ;
 
 // EXPRESIONES
-expr 
-    : PAI expr PAD
+expr : PAI expr PAD
     | expr (MUL | DIV) expr
     | expr (SUM | RES) expr
+    | expr relop expr
+    | functionCall
+    | TRUE
+    | FALSE
     | NUM
-    | FLOAT_NUM
-    | STRING_LITERAL
-    | BOOL_LITERAL
+    | FLOAT
+    | STRING
     | VAR
     ;
 
+// FUNCION CALL
+functionCall : VAR PAI argList? PAD ;
+
+argList : expr (',' expr)* ;
+
 // OPERADORES RELACIONALES
-relop 
-    : '>'
+relop : '>'
     | '<'
     | '>='
     | '<='
@@ -81,15 +97,29 @@ relop
 
 // TOKENS
 PROGRAM : 'program' ;
-TVAR : 'var' ;
+TVAR : 'var'
+    | 'let'
+    | 'const'
+    ;
 
 INT : 'int' ;
-FLOAT : 'float' ;
-STRING : 'string' ;
+FLOAT_T : 'float' ;
+STRING_T : 'string' ;
 BOOL : 'bool' ;
+VOID : 'void' ;
 
 IF : 'if' ;
 ELSE : 'else' ;
+WHILE : 'while' ;
+FOR : 'for' ;
+
+FUNCTION : 'function' ;
+RETURN : 'return' ;
+
+PRINT : 'print' ;
+
+TRUE : 'true' ;
+FALSE : 'false' ;
 
 ASIG : '=' ;
 
@@ -108,15 +138,18 @@ PAD : ')' ;
 LLA : '{' ;
 LLC : '}' ;
 
-FLOAT_NUM : [0-9]+ '.' [0-9]+ ;
-STRING_LITERAL : '"' .*? '"' ;
-BOOL_LITERAL : 'true' | 'false' ;
-
 NUM : [0-9]+ ;
+FLOAT : [0-9]+ '.' [0-9]+ ;
+STRING : '"' .*? '"' ;
 
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 
 WS : [ \t\r\n]+ -> skip ;
 
 // ERROR LEXICO
-ERROR_CHAR : . ;
+ERROR_CHAR 
+    : . 
+    {
+        raise Exception(f"[Error Léxico] Línea {self.line}, Columna {self.column}: Símbolo no reconocido '{self.text}'")
+    }
+;
