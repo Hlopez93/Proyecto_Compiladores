@@ -1,7 +1,6 @@
 from llvmlite import ir
 from gramatica_v3Visitor import gramatica_v3Visitor
 
-
 class IRGenerator(gramatica_v3Visitor):
 
     def __init__(self):

@@ -1,6 +1,6 @@
 from gramatica_v3Visitor import gramatica_v3Visitor
 from gramatica_v3Parser import gramatica_v3Parser
-from tablaSimbolos import TablaSimbolos
+from compiler.semantic.tablaSimbolos import TablaSimbolos
 
 class ReturnValue(Exception):
     def __init__(self, value):

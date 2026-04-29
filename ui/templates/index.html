@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Compiler UI</title>
+    <style>
+        body { font-family: Arial; background: #1e1e1e; color: white; }
+        textarea { width: 100%; height: 200px; background: #2d2d2d; color: white; }
+        button { padding: 10px; margin: 10px 0; }
+        .panel { background: #2d2d2d; padding: 10px; margin: 10px 0; }
+        pre { background: black; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+
+<h2>🧠 Compilador v3</h2>
+
+<textarea id="codigo">
+program {
+    var int i = 0;
+
+    while (i < 5) {
+        print(i);
+        i = i + 1;
+    }
+
+    print("fin");
+}
+</textarea>
+
+<button onclick="compilar()">Compilar</button>
+
+<div class="panel">
+    <h3>⚙️ Fases</h3>
+    <ul id="fases"></ul>
+</div>
+
+<div class="panel">
+    <h3>❌ Error</h3>
+    <pre id="error"></pre>
+</div>
+
+<div class="panel">
+    <h3>📄 TAC</h3>
+    <pre id="tac"></pre>
+</div>
+
+<div class="panel">
+    <h3>⚡ LLVM IR</h3>
+    <pre id="ir"></pre>
+</div>
+
+<div class="panel">
+    <h3>🖥️ Consola</h3>
+    <pre id="output"></pre>
+</div>
+
+<script>
+function compilar() {
+
+    fetch("/compilar", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            codigo: document.getElementById("codigo").value
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+
+        // fases
+        let fases = document.getElementById("fases");
+        fases.innerHTML = "";
+        data.fases.forEach(f => {
+            let li = document.createElement("li");
+            li.textContent = `${f[0]}: ${f[1]} (${f[2]} ms)`;
+            fases.appendChild(li);
+        });
+
+        document.getElementById("error").textContent = data.error || "";
+        document.getElementById("tac").textContent = data.tac || "";
+        document.getElementById("ir").textContent = data.ir || "";
+        document.getElementById("output").textContent = data.output || "";
+    });
+}
+</script>
+
+</body>
+</html>

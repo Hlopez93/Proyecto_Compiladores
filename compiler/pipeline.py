@@ -2,12 +2,12 @@ from antlr4 import *
 from gramatica_v3Lexer import gramatica_v3Lexer
 from gramatica_v3Parser import gramatica_v3Parser
 
-from visitorInterprete import InterpreterVisitor
-from visitorSemantico import SemanticVisitor
-from tac_generator import TACGenerator
-from ir_generator import IRGenerator
+from compiler.interpreter.visitorInterprete import InterpreterVisitor
+from compiler.semantic.visitorSemantico import SemanticVisitor
+from compiler.tac.tac_generator import TACGenerator
+from compiler.ir.ir_generator import IRGenerator
 
-from customErrorListener import CustomErrorListener
+from compiler.errors.customErrorListener import CustomErrorListener
 
 import time
 
