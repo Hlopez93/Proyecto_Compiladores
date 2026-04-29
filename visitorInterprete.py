@@ -1,12 +1,18 @@
-from ExpresionesVisitor import ExpresionesVisitor
-from ExpresionesParser import ExpresionesParser
+from gramatica_v3Visitor import gramatica_v3Visitor
+from gramatica_v3Parser import gramatica_v3Parser
 from tablaSimbolos import TablaSimbolos
 
 class ReturnValue(Exception):
     def __init__(self, value):
         self.value = value
 
-class InterpreterVisitor(ExpresionesVisitor):
+class BreakException(Exception):
+    pass
+
+class ContinueException(Exception):
+    pass
+
+class InterpreterVisitor(gramatica_v3Visitor):
 
     def __init__(self):
         self.tabla = TablaSimbolos()
@@ -22,12 +28,18 @@ class InterpreterVisitor(ExpresionesVisitor):
         self.tabla.pop_scope()
 
     def visitDeclaration(self, ctx):
-        nombre = ctx.declarationStatement().VAR().getText()
-        tipo = ctx.declarationStatement().tipo().getText()
+        stmt = ctx.declarationStatement()
+
+        nombre = stmt.VAR().getText()
+        tipo = stmt.tipo().getText()
 
         valor = None
-        if ctx.declarationStatement().expr():
-            valor = self.visit(ctx.declarationStatement().expr())
+
+        if stmt.arrayLiteral():
+            valor = self.visit(stmt.arrayLiteral())
+
+        elif stmt.expr():
+            valor = self.visit(stmt.expr())
 
         self.tabla.declarar(nombre, tipo, valor)
 
@@ -36,10 +48,17 @@ class InterpreterVisitor(ExpresionesVisitor):
         tipo = ctx.tipo().getText()
 
         valor = None
-        if ctx.expr():
+
+        if ctx.arrayLiteral():
+            valor = self.visit(ctx.arrayLiteral())
+
+        elif ctx.expr():
             valor = self.visit(ctx.expr())
 
         self.tabla.declarar(nombre, tipo, valor)
+    
+    def visitArrayLiteral(self, ctx):
+        return [self.visit(e) for e in ctx.expr()]
 
     def visitAssignment(self, ctx):
         stmt = ctx.assignmentStatement()
@@ -94,25 +113,35 @@ class InterpreterVisitor(ExpresionesVisitor):
 
     def visitWhileStatement(self, ctx):
         while self.visit(ctx.condition()):
-            self.visit(ctx.block())
+            try:
+                self.visit(ctx.block())
+            except BreakException:
+                break
+            except ContinueException:
+                continue
 
     def visitForStatement(self, ctx):
         self.tabla.push_scope()
 
         if ctx.forInit():
-            if ctx.forInit().declarationStatement(): self.visit(ctx.forInit().declarationStatement())
-            else: self.visit(ctx.forInit().assignmentStatement())
+            if ctx.forInit().declarationStatement():
+                self.visit(ctx.forInit().declarationStatement())
+            else:
+                self.visit(ctx.forInit().assignmentStatement())
 
         while True:
             if ctx.condition():
                 if not self.visit(ctx.condition()):
                     break
 
-            # IMPORTANTE: ejecutar el block SIN perder acceso a 'i'
-            for stmt in ctx.block().statement():
-                self.visit(stmt)
+            try:
+                for stmt in ctx.block().statement():
+                    self.visit(stmt)
+            except BreakException:
+                break
+            except ContinueException:
+                pass
 
-            # UPDATE
             if ctx.forUpdate():
                 self.visit(ctx.forUpdate().assignmentStatement())
 
@@ -148,6 +177,18 @@ class InterpreterVisitor(ExpresionesVisitor):
         if ctx.TRUE(): return True
         if ctx.FALSE(): return False
 
+        # acceso array
+        if ctx.getChildCount() == 4 and ctx.getChild(1).getText() == '[':
+            nombre = ctx.getChild(0).getText()
+            index = self.visit(ctx.expr(0))
+
+            array = self.tabla.obtener(nombre)["valor"]
+
+            if not isinstance(array, list):
+                raise Exception("Error: variable no es un array")
+
+            return array[index]
+
         if ctx.VAR():
             return self.tabla.obtener(ctx.VAR().getText())["valor"]
 
@@ -163,9 +204,20 @@ class InterpreterVisitor(ExpresionesVisitor):
             if op == '-': return a - b
             if op == '*': return a * b
             if op == '/': return a // b
+            if op == '%': return a % b
 
         if ctx.expr():
             return self.visit(ctx.expr(0))
+        
+    def visitImportStmt(self, ctx):
+        # no hace nada en ejecución por ahora
+        return
+
+    def visitBreakStmt(self, ctx):
+        raise BreakException()
+
+    def visitContinueStmt(self, ctx):
+        raise ContinueException()
 
     def visitPrintStmt(self, ctx):
         valor = self.visit(ctx.expr())

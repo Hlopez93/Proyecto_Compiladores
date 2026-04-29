@@ -1,32 +1,8 @@
 program {
 
-    function int pruebaControl(int limite) {
+    var int x = 10;
+    print(x);
 
-        var int suma = 0;
-
-        for (var int i = 0; i < limite; i = i + 1) {
-
-            if (i == 0 || i == 2 || i == 4) {
-                suma = suma + i;
-            }
-
-        }
-
-        var int j = 0;
-
-        while (j < limite) {
-
-            if (j == 3) {
-                suma = suma + 100;
-            }
-
-            j = j + 1;
-        }
-
-        return suma;
-    }
-
-    var int resultado = pruebaControl(5);
-
-    print(resultado);
+    var int y = 20;
+    print(x + y);
 }
