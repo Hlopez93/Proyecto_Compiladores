@@ -84,12 +84,12 @@ expr : PAI expr PAD
     | expr (SUM | RES) expr
     | expr relop expr
     | functionCall
-    | VAR '[' expr ']'
+    | arrayAccess
     | TRUE
     | FALSE
     | NUM
-    | FLOAT
-    | STRING
+    | FLOAT_LITERAL
+    | STRING_LITERAL
     | VAR
     ;
 
@@ -100,6 +100,9 @@ argList : expr (',' expr)* ;
 
 // ARRAY
 arrayLiteral : '[' expr (',' expr)* ']' ;
+
+// ACCESO A ARRAY
+arrayAccess : VAR '[' expr ']' ;
 
 // OPERADORES RELACIONALES
 relop : '>'
@@ -160,8 +163,8 @@ LLA : '{' ;
 LLC : '}' ;
 
 NUM : [0-9]+ ;
-FLOAT : [0-9]+ '.' [0-9]+ ;
-STRING : '"' .*? '"' ;
+FLOAT_LITERAL : [0-9]+ '.' [0-9]+ ;
+STRING_LITERAL : '"' .*? '"' ;
 
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 
