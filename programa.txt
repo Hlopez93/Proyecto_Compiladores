@@ -1,5 +1,32 @@
 program {
-    for (let int i = 0; i < 6; i = i + 1) {
-        print(i);
+
+    function int pruebaControl(int limite) {
+
+        var int suma = 0;
+
+        for (var int i = 0; i < limite; i = i + 1) {
+
+            if (i == 0 || i == 2 || i == 4) {
+                suma = suma + i;
+            }
+
+        }
+
+        var int j = 0;
+
+        while (j < limite) {
+
+            if (j == 3) {
+                suma = suma + 100;
+            }
+
+            j = j + 1;
+        }
+
+        return suma;
     }
+
+    var int resultado = pruebaControl(5);
+
+    print(resultado);
 }
