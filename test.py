@@ -44,12 +44,5 @@ def ejecutar_archivo(nombre):
         print(" Error en ejecución:", e)
         return
 
-"""     # ----------- DEBUG FINAL -----------
-    print("Estado final de variables:")
-    global_scope = interprete.tabla.scopes[0]
-    for nombre, info in global_scope.items():
-        if info["tipo"] != "function":
-            print(f"{nombre} = {info['valor']}") """
-
 if __name__ == "__main__":
     ejecutar_archivo("programa.txt")
