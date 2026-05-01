@@ -1,12 +1,10 @@
 class TablaSimbolos:
 
     def __init__(self):
-        self.scopes = [{}]   # pila de scopes
+        self.scopes = [{}]
         self.funciones = {}
 
-    # =========================
     # SCOPES
-    # =========================
     def push_scope(self):
         self.scopes.append({})
 
@@ -16,9 +14,7 @@ class TablaSimbolos:
     def scope_actual(self):
         return self.scopes[-1]
 
-    # =========================
     # VARIABLES
-    # =========================
     def declarar(self, nombre, tipo, valor=None, mutable=True):
 
         scope = self.scope_actual()
@@ -53,9 +49,7 @@ class TablaSimbolos:
 
         raise Exception(f"Error semántico: Variable '{nombre}' no declarada")
 
-    # =========================
     # FUNCIONES
-    # =========================
     def declarar_funcion(self, nombre, tipo_retorno, parametros, ctx):
 
         if nombre in self.funciones:

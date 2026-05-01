@@ -22,9 +22,7 @@ class IRGenerator(gramatica_v3Visitor):
         )
         self.printf = ir.Function(self.module, printf_type, name="printf")
 
-    # =========================
     # ROOT (main)
-    # =========================
     def visitRoot(self, ctx):
 
         func_type = ir.FunctionType(ir.IntType(32), [])
@@ -38,9 +36,7 @@ class IRGenerator(gramatica_v3Visitor):
 
         self.builder.ret(ir.Constant(ir.IntType(32), 0))
 
-    # =========================
     # TIPOS
-    # =========================
     def get_type(self, tipo):
         t = tipo.getText()
 
@@ -59,9 +55,7 @@ class IRGenerator(gramatica_v3Visitor):
 
         return ir.VoidType()
 
-    # =========================
     # DECLARACIÓN
-    # =========================
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
@@ -92,17 +86,13 @@ class IRGenerator(gramatica_v3Visitor):
             val = self.visit(ctx.expr())
             self.builder.store(val, ptr)
 
-    # =========================
     # ASIGNACIÓN
-    # =========================
     def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
         val = self.visit(ctx.expr())
         self.builder.store(val, self.variables[nombre])
 
-    # =========================
     # EXPRESIONES
-    # =========================
     def visitExpr(self, ctx):
 
         # números
@@ -158,9 +148,7 @@ class IRGenerator(gramatica_v3Visitor):
 
         return self.visit(ctx.expr(0))
 
-    # =========================
     # CONDICIONES
-    # =========================
     def visitCondition(self, ctx):
 
         if ctx.AND():
@@ -187,9 +175,7 @@ class IRGenerator(gramatica_v3Visitor):
 
         return self.visit(ctx.condition(0))
 
-    # =========================
     # IF
-    # =========================
     def visitIfStatement(self, ctx):
 
         cond = self.visit(ctx.condition())
@@ -216,9 +202,7 @@ class IRGenerator(gramatica_v3Visitor):
 
         self.builder.position_at_start(merge)
 
-    # =========================
     # WHILE
-    # =========================
     def visitWhileStatement(self, ctx):
 
         cond_block = self.func.append_basic_block("while_cond")
@@ -247,9 +231,7 @@ class IRGenerator(gramatica_v3Visitor):
 
         self.builder.position_at_start(end_block)
 
-    # =========================
     # BREAK / CONTINUE
-    # =========================
     def visitBreakStmt(self, ctx):
         target = self.loop_stack[-1]["break"]
         self.builder.branch(target)
@@ -264,9 +246,7 @@ class IRGenerator(gramatica_v3Visitor):
         new_block = self.func.append_basic_block("after_continue")
         self.builder.position_at_start(new_block)
 
-    # =========================
     # FUNCIONES
-    # =========================
     def visitFunctionDecl(self, ctx):
 
         nombre = ctx.VAR().getText()
@@ -329,9 +309,7 @@ class IRGenerator(gramatica_v3Visitor):
 
         return self.builder.call(func, args)
 
-    # =========================
     # PRINT
-    # =========================
     def visitPrintStmt(self, ctx):
 
         val = self.visit(ctx.expr())
@@ -349,9 +327,7 @@ class IRGenerator(gramatica_v3Visitor):
             fmt = self.create_string("%f\n")
             self.builder.call(self.printf, [fmt, val])
 
-    # =========================
     # STRING
-    # =========================
     def create_string(self, text):
         text_bytes = bytearray(text.encode("utf8")) + b'\00'
         string_type = ir.ArrayType(ir.IntType(8), len(text_bytes))

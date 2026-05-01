@@ -10,7 +10,6 @@ from compiler.tac.tac_generator import TACGenerator
 from compiler.ir.ir_generator import IRGenerator
 from compiler.errors.customErrorListener import CustomErrorListener
 
-
 def ejecutar_codigo(codigo: str):
     resultado = {
         "fases": [],
@@ -21,9 +20,7 @@ def ejecutar_codigo(codigo: str):
     }
 
     try:
-        # ========================
         # LEXER
-        # ========================
         start = time.time()
 
         input_stream = InputStream(codigo)
@@ -33,9 +30,7 @@ def ejecutar_codigo(codigo: str):
         tiempo = (time.time() - start) * 1000
         resultado["fases"].append(("Lexer", "OK", round(tiempo, 2)))
 
-        # ========================
         # PARSER
-        # ========================
         start = time.time()
 
         parser = gramatica_v3Parser(tokens)
@@ -50,9 +45,7 @@ def ejecutar_codigo(codigo: str):
         tiempo = (time.time() - start) * 1000
         resultado["fases"].append(("Parser", "OK", round(tiempo, 2)))
 
-        # ========================
         # SEMÁNTICO
-        # ========================
         start = time.time()
 
         sem = SemanticVisitor()
@@ -61,9 +54,7 @@ def ejecutar_codigo(codigo: str):
         tiempo = (time.time() - start) * 1000
         resultado["fases"].append(("Semántico", "OK", round(tiempo, 2)))
 
-        # ========================
         # TAC
-        # ========================
         start = time.time()
 
         tac = TACGenerator()
@@ -72,16 +63,14 @@ def ejecutar_codigo(codigo: str):
         tac_code = "\n".join(tac.code)
         resultado["tac"] = tac_code
 
-        # Guardar archivo TAC
+        # Guarda archivo TAC
         with open("output.tac", "w") as f:
             f.write(tac_code)
 
         tiempo = (time.time() - start) * 1000
         resultado["fases"].append(("TAC", "OK", round(tiempo, 2)))
 
-        # ========================
         # LLVM IR
-        # ========================
         start = time.time()
 
         irgen = IRGenerator()
@@ -90,16 +79,14 @@ def ejecutar_codigo(codigo: str):
         ir_code = str(irgen.module)
         resultado["ir"] = ir_code
 
-        # Guardar archivo LLVM IR
+        # Guarda archivo LLVM IR
         with open("output.ll", "w") as f:
             f.write(ir_code)
 
         tiempo = (time.time() - start) * 1000
         resultado["fases"].append(("LLVM IR", "OK", round(tiempo, 2)))
 
-        # ========================
         # INTERPRETE
-        # ========================
         start = time.time()
 
         import io, sys
@@ -121,10 +108,7 @@ def ejecutar_codigo(codigo: str):
 
     return resultado
 
-
-# ========================
 # MODO SCRIPT
-# ========================
 if __name__ == "__main__":
 
     with open("tests/programa.txt", "r", encoding="utf-8") as f:

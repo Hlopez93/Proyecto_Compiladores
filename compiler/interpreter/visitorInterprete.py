@@ -1,9 +1,7 @@
 from compiler.gramatica_v3Visitor import gramatica_v3Visitor
 from compiler.semantic.tablaSimbolos import TablaSimbolos
 
-# =========================
 # EXCEPCIONES DE CONTROL
-# =========================
 class ReturnValue(Exception):
     def __init__(self, value):
         self.value = value
@@ -14,31 +12,24 @@ class BreakException(Exception):
 class ContinueException(Exception):
     pass
 
-
 class InterpreterVisitor(gramatica_v3Visitor):
 
     def __init__(self):
         self.tabla = TablaSimbolos()
 
-    # =========================
     # ROOT
-    # =========================
     def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
-    # =========================
     # BLOCK
-    # =========================
     def visitBlock(self, ctx):
         self.tabla.push_scope()
         for stmt in ctx.statement():
             self.visit(stmt)
         self.tabla.pop_scope()
 
-    # =========================
     # DECLARACIÓN
-    # =========================
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
@@ -61,15 +52,11 @@ class InterpreterVisitor(gramatica_v3Visitor):
             mutable=(decl != "const")
         )
 
-    # =========================
     # ARRAY
-    # =========================
     def visitArrayLiteral(self, ctx):
         return [self.visit(e) for e in ctx.expr()]
 
-    # =========================
     # ASIGNACIÓN
-    # =========================
     def visitAssignment(self, ctx):
         self.visit(ctx.assignmentStatement())
 
@@ -84,9 +71,7 @@ class InterpreterVisitor(gramatica_v3Visitor):
 
         self.tabla.asignar(nombre, valor)
 
-    # =========================
     # FUNCIONES
-    # =========================
     def visitFunctionDecl(self, ctx):
         nombre = ctx.VAR().getText()
         tipo = ctx.tipo().getText()
@@ -123,9 +108,7 @@ class InterpreterVisitor(gramatica_v3Visitor):
         val = self.visit(ctx.expr()) if ctx.expr() else None
         raise ReturnValue(val)
 
-    # =========================
     # CONTROL DE FLUJO
-    # =========================
     def visitIfStatement(self, ctx):
         if self.visit(ctx.condition()):
             self.visit(ctx.block(0))
@@ -174,16 +157,12 @@ class InterpreterVisitor(gramatica_v3Visitor):
     def visitContinueStmt(self, ctx):
         raise ContinueException()
 
-    # =========================
     # IMPORT (no-op)
-    # =========================
     def visitImportStmt(self, ctx):
         # No hace nada por ahora
         return
 
-    # =========================
     # CONDICIONES
-    # =========================
     def visitCondition(self, ctx):
 
         if ctx.AND():
@@ -218,9 +197,7 @@ class InterpreterVisitor(gramatica_v3Visitor):
         if ctx.condition():
             return self.visit(ctx.condition(0))
 
-    # =========================
     # EXPRESIONES
-    # =========================
     def visitExpr(self, ctx):
 
         # LITERALES
@@ -274,9 +251,7 @@ class InterpreterVisitor(gramatica_v3Visitor):
         if ctx.expr():
             return self.visit(ctx.expr(0))
 
-    # =========================
     # PRINT
-    # =========================
     def visitPrintStmt(self, ctx):
         valor = self.visit(ctx.expr())
         print(valor)

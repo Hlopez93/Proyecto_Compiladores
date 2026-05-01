@@ -8,25 +8,19 @@ class SemanticVisitor(gramatica_v3Visitor):
         self.current_function = None
         self.in_loop = 0  # control para break/continue
 
-    # =========================
     # ROOT
-    # =========================
     def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
-    # =========================
     # BLOCK
-    # =========================
     def visitBlock(self, ctx):
         self.tabla.push_scope()
         for stmt in ctx.statement():
             self.visit(stmt)
         self.tabla.pop_scope()
 
-    # =========================
     # DECLARACIÓN
-    # =========================
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
@@ -54,9 +48,7 @@ class SemanticVisitor(gramatica_v3Visitor):
             mutable=(decl != "const")
         )
 
-    # =========================
     # ARRAY
-    # =========================
     def visitArrayLiteral(self, ctx):
         tipos = [self.visit(e) for e in ctx.expr()]
 
@@ -65,9 +57,7 @@ class SemanticVisitor(gramatica_v3Visitor):
 
         return tipos[0] + "[]"
 
-    # =========================
     # ASIGNACIÓN
-    # =========================
     def visitAssignment(self, ctx):
         self.visit(ctx.assignmentStatement())
 
@@ -83,9 +73,7 @@ class SemanticVisitor(gramatica_v3Visitor):
         if tipo_expr != var["tipo"]:
             raise Exception("Error semántico: tipos incompatibles en asignación")
 
-    # =========================
     # FUNCIONES
-    # =========================
     def visitFunctionDecl(self, ctx):
         nombre = ctx.VAR().getText()
         tipo_retorno = ctx.tipo().getText()
@@ -139,9 +127,7 @@ class SemanticVisitor(gramatica_v3Visitor):
 
         return func["retorno"]
 
-    # =========================
     # CONTROL DE FLUJO
-    # =========================
     def visitIfStatement(self, ctx):
         if self.visit(ctx.condition()) != "bool":
             raise Exception("Error: condición de if debe ser bool")
@@ -193,16 +179,12 @@ class SemanticVisitor(gramatica_v3Visitor):
         if self.in_loop == 0:
             raise Exception("Error: continue fuera de ciclo")
 
-    # =========================
     # IMPORT
-    # =========================
     def visitImportStmt(self, ctx):
         # No se valida aún (fase futura)
         return
 
-    # =========================
     # CONDICIONES
-    # =========================
     def visitCondition(self, ctx):
 
         if ctx.AND() or ctx.OR():
@@ -226,9 +208,7 @@ class SemanticVisitor(gramatica_v3Visitor):
         if ctx.condition():
             return self.visit(ctx.condition(0))
 
-    # =========================
     # EXPRESIONES
-    # =========================
     def visitExpr(self, ctx):
 
         if ctx.NUM():

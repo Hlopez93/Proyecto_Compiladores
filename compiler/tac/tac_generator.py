@@ -9,9 +9,7 @@ class TACGenerator(gramatica_v3Visitor):
 
         self.loop_stack = []  # para break / continue
 
-    # =========================
     # UTILIDADES
-    # =========================
     def new_temp(self):
         self.temp_count += 1
         return f"t{self.temp_count}"
@@ -23,16 +21,12 @@ class TACGenerator(gramatica_v3Visitor):
     def emit(self, line):
         self.code.append(line)
 
-    # =========================
     # ROOT
-    # =========================
     def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
-    # =========================
     # DECLARACIÓN
-    # =========================
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
@@ -47,9 +41,7 @@ class TACGenerator(gramatica_v3Visitor):
             val = self.visit(ctx.expr())
             self.emit(f"{nombre} = {val}")
 
-    # =========================
     # ASIGNACIÓN
-    # =========================
     def visitAssignment(self, ctx):
         self.visit(ctx.assignmentStatement())
 
@@ -58,9 +50,7 @@ class TACGenerator(gramatica_v3Visitor):
         val = self.visit(ctx.expr())
         self.emit(f"{nombre} = {val}")
 
-    # =========================
     # EXPRESIONES
-    # =========================
     def visitExpr(self, ctx):
 
         # LITERALES
@@ -110,9 +100,7 @@ class TACGenerator(gramatica_v3Visitor):
         if ctx.expr():
             return self.visit(ctx.expr(0))
 
-    # =========================
     # CONDICIONES
-    # =========================
     def visitCondition(self, ctx):
 
         if ctx.relop():
@@ -150,9 +138,7 @@ class TACGenerator(gramatica_v3Visitor):
         if ctx.FALSE():
             return "false"
 
-    # =========================
     # IF
-    # =========================
     def visitIfStatement(self, ctx):
 
         cond = self.visit(ctx.condition())
@@ -184,9 +170,7 @@ class TACGenerator(gramatica_v3Visitor):
 
         self.emit(f"{label_end}:")
 
-    # =========================
     # WHILE
-    # =========================
     def visitWhileStatement(self, ctx):
 
         label_cond = self.new_label()
@@ -215,9 +199,7 @@ class TACGenerator(gramatica_v3Visitor):
 
         self.emit(f"{label_end}:")
 
-    # =========================
     # BREAK / CONTINUE
-    # =========================
     def visitBreakStmt(self, ctx):
         target = self.loop_stack[-1]["break"]
         self.emit(f"goto {target}")
@@ -226,9 +208,7 @@ class TACGenerator(gramatica_v3Visitor):
         target = self.loop_stack[-1]["continue"]
         self.emit(f"goto {target}")
 
-    # =========================
     # FUNCIONES
-    # =========================
     def visitFunctionDecl(self, ctx):
 
         nombre = ctx.VAR().getText()
@@ -260,9 +240,7 @@ class TACGenerator(gramatica_v3Visitor):
 
         return temp
 
-    # =========================
     # RETURN
-    # =========================
     def visitReturnStmt(self, ctx):
 
         if ctx.expr():
@@ -271,16 +249,12 @@ class TACGenerator(gramatica_v3Visitor):
         else:
             self.emit("return")
 
-    # =========================
     # PRINT
-    # =========================
     def visitPrintStmt(self, ctx):
 
         val = self.visit(ctx.expr())
         self.emit(f"print {val}")
 
-    # =========================
-    # IMPORT (no-op)
-    # =========================
+    # IMPORT (fase futura)
     def visitImportStmt(self, ctx):
         return
