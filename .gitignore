@@ -1,4 +1,6 @@
 venv/
-.env
 __pycache__/
-*.so
+*.pyc
+*.interp
+*.tokens
+antlr-*.jar
