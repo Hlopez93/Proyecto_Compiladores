@@ -45,7 +45,6 @@ STRING=44
 VAR=45
 LINE_COMMENT=46
 WS=47
-ERROR_CHAR=48
 '['=1
 ']'=2
 'program'=3

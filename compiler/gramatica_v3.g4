@@ -1,9 +1,9 @@
 grammar gramatica_v3;
 
-// PROGRAMA
+// ================= PROGRAMA =================
 root : PROGRAM LLA statement* LLC EOF ;
 
-// SENTENCIAS
+// ================= SENTENCIAS =================
 statement
     : declaration
     | assignment
@@ -18,12 +18,11 @@ statement
     | continueStmt
     ;
 
-// DECLARACION
+// ================= DECLARACION =================
 declaration : declarationStatement SEMI ;
-
 declarationStatement : DECL tipo VAR (ASIG (expr | arrayLiteral))? ;
 
-// TIPOS
+// ================= TIPOS =================
 tipo : baseTipo ('[' ']')? ;
 
 baseTipo
@@ -34,45 +33,41 @@ baseTipo
     | VOID
     ;
 
-// ASIGNACION
+// ================= ASIGNACION =================
 assignment : assignmentStatement SEMI ;
 assignmentStatement : VAR ASIG expr ;
 
-// IF
+// ================= IF =================
 ifStatement : IF PAI condition PAD block (ELSE block)? ;
 
-// WHILE
+// ================= WHILE =================
 whileStatement : WHILE PAI condition PAD block ;
 
-// FOR
+// ================= FOR =================
 forStatement : FOR PAI forInit? SEMI condition? SEMI forUpdate? PAD block ;
-
 forInit : declarationStatement | assignmentStatement ;
 forUpdate : assignmentStatement ;
 
-// FUNCIONES
+// ================= FUNCIONES =================
 functionDecl : tipo VAR PAI paramList? PAD block ;
-
 paramList : param (COMMA param)* ;
-
 param : tipo VAR ;
-
 returnStmt : RETURN expr? SEMI ;
 
-// PRINT
+// ================= PRINT =================
 printStmt : PRINT PAI expr PAD SEMI ;
 
-// IMPORT
+// ================= IMPORT =================
 importStmt : IMPORT VAR SEMI ;
 
-// BREAK / CONTINUE
+// ================= BREAK =================
 breakStmt : BREAK SEMI ;
 continueStmt : CONTINUE SEMI ;
 
-// BLOQUE
+// ================= BLOQUE =================
 block : LLA statement* LLC ;
 
-// CONDICION
+// ================= CONDICIONES =================
 condition
     : condition AND condition
     | condition OR condition
@@ -83,12 +78,22 @@ condition
     | PAI condition PAD
     ;
 
-// EXPRESIONES
+// ================= EXPRESIONES (FIX REAL) =================
 expr
+    : expr SUM term
+    | expr RES term
+    | term
+    ;
+
+term
+    : term MUL factor
+    | term DIV factor
+    | term MOD factor
+    | factor
+    ;
+
+factor
     : PAI expr PAD
-    | expr (MUL | DIV | MOD) expr
-    | expr (SUM | RES) expr
-    | expr relop expr
     | functionCall
     | VAR '[' expr ']'
     | TRUE
@@ -99,32 +104,20 @@ expr
     | VAR
     ;
 
-// FUNCION CALL
+// ================= FUNCION CALL =================
 functionCall : VAR PAI argList? PAD ;
-
 argList : expr (COMMA expr)* ;
 
-// ARRAY
+// ================= ARRAY =================
 arrayLiteral : '[' expr (COMMA expr)* ']' ;
 
-// RELACIONALES
-relop
-    : GT
-    | LT
-    | GTE
-    | LTE
-    | EQ
-    | NEQ
-    ;
+// ================= RELACIONALES =================
+relop : GT | LT | GTE | LTE | EQ | NEQ ;
 
-// TOKENS
+// ================= TOKENS =================
 PROGRAM : 'program' ;
 
-DECL
-    : 'var'
-    | 'let'
-    | 'const'
-    ;
+DECL : 'var' | 'let' | 'const' ;
 
 INT : 'int' ;
 FLOAT_T : 'float' ;
@@ -175,25 +168,11 @@ LLC : '}' ;
 SEMI : ';' ;
 COMMA : ',' ;
 
-// LITERALES
 NUM : [0-9]+ ;
 FLOAT : [0-9]+ '.' [0-9]+ ;
 STRING : '"' .*? '"' ;
 
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 
-// COMENTARIOS
-LINE_COMMENT
-    : '//' ~[\r\n]* -> skip
-    ;
-
-// ESPACIOS
+LINE_COMMENT : '//' ~[\r\n]* -> skip ;
 WS : [ \t\r\n]+ -> skip ;
-
-// ERROR LEXICO
-ERROR_CHAR
-    : .
-    {
-        raise Exception(f"[Error Léxico] Línea {self.line}, Columna {self.column}: Símbolo no reconocido '{self.text}'")
-    }
-;

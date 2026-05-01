@@ -10,15 +10,15 @@ entry:
   %"nums" = alloca i32*
   %".2" = alloca [5 x i32]
   %".3" = getelementptr [5 x i32], [5 x i32]* %".2", i32 0, i32 0
-  store i32 3, i32* %".3"
+  store i32 1, i32* %".3"
   %".5" = getelementptr [5 x i32], [5 x i32]* %".2", i32 0, i32 1
-  store i32 1, i32* %".5"
+  store i32 3, i32* %".5"
   %".7" = getelementptr [5 x i32], [5 x i32]* %".2", i32 0, i32 2
-  store i32 4, i32* %".7"
+  store i32 5, i32* %".7"
   %".9" = getelementptr [5 x i32], [5 x i32]* %".2", i32 0, i32 3
-  store i32 1, i32* %".9"
+  store i32 7, i32* %".9"
   %".11" = getelementptr [5 x i32], [5 x i32]* %".2", i32 0, i32 4
-  store i32 5, i32* %".11"
+  store i32 9, i32* %".11"
   %".13" = bitcast [5 x i32]* %".2" to i32*
   store i32* %".13", i32** %"nums"
   %"total" = alloca i32
@@ -42,17 +42,18 @@ while_body:
   %".28" = icmp eq i32 %".27", 0
   br i1 %".28", label %"then", label %"ifend"
 while_end:
-  %"msg" = alloca i8*
-  %".47" = bitcast [17 x i8]* @"str_3" to i8*
-  store i8* %".47", i8** %"msg"
-  %".49" = load i8*, i8** %"msg"
-  %".50" = call i32 @"fibonacci"(i32 15)
-  %".51" = bitcast [4 x i8]* @"str_4" to i8*
-  %".52" = call i32 (i8*, ...) @"printf"(i8* %".51", i32 %".50")
-  %".53" = bitcast [14 x i8]* @"str_5" to i8*
-  %".54" = load i32, i32* %"total"
-  %".55" = bitcast [4 x i8]* @"str_6" to i8*
-  %".56" = call i32 (i8*, ...) @"printf"(i8* %".55", i32 %".54")
+  %".42" = bitcast [17 x i8]* @"str_3" to i8*
+  %".43" = bitcast [4 x i8]* @"str_4" to i8*
+  %".44" = call i32 (i8*, ...) @"printf"(i8* %".43", i8* %".42")
+  %".45" = call i32 @"fibonacci"(i32 20)
+  %".46" = bitcast [4 x i8]* @"str_5" to i8*
+  %".47" = call i32 (i8*, ...) @"printf"(i8* %".46", i32 %".45")
+  %".48" = bitcast [14 x i8]* @"str_6" to i8*
+  %".49" = bitcast [4 x i8]* @"str_7" to i8*
+  %".50" = call i32 (i8*, ...) @"printf"(i8* %".49", i8* %".48")
+  %".51" = load i32, i32* %"total"
+  %".52" = bitcast [4 x i8]* @"str_8" to i8*
+  %".53" = call i32 (i8*, ...) @"printf"(i8* %".52", i32 %".51")
   ret i32 0
 then:
   %".30" = load i32, i32* %"total"
@@ -67,15 +68,7 @@ ifend:
   %".38" = load i32, i32* %"i"
   %".39" = add i32 %".38", 1
   store i32 %".39", i32* %"i"
-  %".41" = load i32, i32* %"total"
-  %".42" = icmp sgt i32 %".41", 10
-  br i1 %".42", label %"then.1", label %"ifend.1"
-then.1:
-  br label %"while_end"
-ifend.1:
   br label %"while_cond"
-after_break:
-  br label %"ifend.1"
 }
 
 define i32 @"fibonacci"(i32 %"n")
@@ -100,7 +93,9 @@ ifend:
   ret i32 %".16"
 }
 
-@"str_3" = constant [17 x i8] c"Fibonacci(15) = \00"
-@"str_4" = constant [4 x i8] c"%d\0a\00"
-@"str_5" = constant [14 x i8] c"Total pares: \00"
-@"str_6" = constant [4 x i8] c"%d\0a\00"
+@"str_3" = constant [17 x i8] c"Fibonacci(20) = \00"
+@"str_4" = constant [4 x i8] c"%s\0a\00"
+@"str_5" = constant [4 x i8] c"%d\0a\00"
+@"str_6" = constant [14 x i8] c"Total pares: \00"
+@"str_7" = constant [4 x i8] c"%s\0a\00"
+@"str_8" = constant [4 x i8] c"%d\0a\00"

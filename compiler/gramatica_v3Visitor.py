@@ -129,6 +129,16 @@ class gramatica_v3Visitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by gramatica_v3Parser#term.
+    def visitTerm(self, ctx:gramatica_v3Parser.TermContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by gramatica_v3Parser#factor.
+    def visitFactor(self, ctx:gramatica_v3Parser.FactorContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by gramatica_v3Parser#functionCall.
     def visitFunctionCall(self, ctx:gramatica_v3Parser.FunctionCallContext):
         return self.visitChildren(ctx)
