@@ -34,6 +34,11 @@ class gramatica_v3Visitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by gramatica_v3Parser#baseTipo.
+    def visitBaseTipo(self, ctx:gramatica_v3Parser.BaseTipoContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by gramatica_v3Parser#assignment.
     def visitAssignment(self, ctx:gramatica_v3Parser.AssignmentContext):
         return self.visitChildren(ctx)

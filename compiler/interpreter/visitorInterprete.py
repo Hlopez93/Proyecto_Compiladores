@@ -1,7 +1,9 @@
-from gramatica_v3Visitor import gramatica_v3Visitor
-from gramatica_v3Parser import gramatica_v3Parser
+from compiler.gramatica_v3Visitor import gramatica_v3Visitor
 from compiler.semantic.tablaSimbolos import TablaSimbolos
 
+# =========================
+# EXCEPCIONES DE CONTROL
+# =========================
 class ReturnValue(Exception):
     def __init__(self, value):
         self.value = value
@@ -12,63 +14,79 @@ class BreakException(Exception):
 class ContinueException(Exception):
     pass
 
+
 class InterpreterVisitor(gramatica_v3Visitor):
 
     def __init__(self):
         self.tabla = TablaSimbolos()
 
+    # =========================
+    # ROOT
+    # =========================
     def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
+    # =========================
+    # BLOCK
+    # =========================
     def visitBlock(self, ctx):
         self.tabla.push_scope()
         for stmt in ctx.statement():
             self.visit(stmt)
         self.tabla.pop_scope()
 
+    # =========================
+    # DECLARACIÓN
+    # =========================
     def visitDeclaration(self, ctx):
-        stmt = ctx.declarationStatement()
-
-        nombre = stmt.VAR().getText()
-        tipo = stmt.tipo().getText()
-
-        valor = None
-
-        if stmt.arrayLiteral():
-            valor = self.visit(stmt.arrayLiteral())
-
-        elif stmt.expr():
-            valor = self.visit(stmt.expr())
-
-        self.tabla.declarar(nombre, tipo, valor)
+        self.visit(ctx.declarationStatement())
 
     def visitDeclarationStatement(self, ctx):
         nombre = ctx.VAR().getText()
         tipo = ctx.tipo().getText()
+        decl = ctx.DECL().getText()  # var / let / const
 
         valor = None
 
         if ctx.arrayLiteral():
             valor = self.visit(ctx.arrayLiteral())
-
         elif ctx.expr():
             valor = self.visit(ctx.expr())
 
-        self.tabla.declarar(nombre, tipo, valor)
-    
+        self.tabla.declarar(
+            nombre,
+            tipo,
+            valor,
+            mutable=(decl != "const")
+        )
+
+    # =========================
+    # ARRAY
+    # =========================
     def visitArrayLiteral(self, ctx):
         return [self.visit(e) for e in ctx.expr()]
 
+    # =========================
+    # ASIGNACIÓN
+    # =========================
     def visitAssignment(self, ctx):
-        stmt = ctx.assignmentStatement()
-        self.tabla.asignar(stmt.VAR().getText(), self.visit(stmt.expr()))
+        self.visit(ctx.assignmentStatement())
 
     def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
         valor = self.visit(ctx.expr())
+
+        var = self.tabla.obtener(nombre)
+
+        if not var.get("mutable", True):
+            raise Exception(f"Error: '{nombre}' es const y no puede modificarse")
+
         self.tabla.asignar(nombre, valor)
 
+    # =========================
+    # FUNCIONES
+    # =========================
     def visitFunctionDecl(self, ctx):
         nombre = ctx.VAR().getText()
         tipo = ctx.tipo().getText()
@@ -105,6 +123,9 @@ class InterpreterVisitor(gramatica_v3Visitor):
         val = self.visit(ctx.expr()) if ctx.expr() else None
         raise ReturnValue(val)
 
+    # =========================
+    # CONTROL DE FLUJO
+    # =========================
     def visitIfStatement(self, ctx):
         if self.visit(ctx.condition()):
             self.visit(ctx.block(0))
@@ -115,10 +136,10 @@ class InterpreterVisitor(gramatica_v3Visitor):
         while self.visit(ctx.condition()):
             try:
                 self.visit(ctx.block())
-            except BreakException:
-                break
             except ContinueException:
                 continue
+            except BreakException:
+                break
 
     def visitForStatement(self, ctx):
         self.tabla.push_scope()
@@ -137,25 +158,48 @@ class InterpreterVisitor(gramatica_v3Visitor):
             try:
                 for stmt in ctx.block().statement():
                     self.visit(stmt)
-            except BreakException:
-                break
             except ContinueException:
                 pass
+            except BreakException:
+                break
 
             if ctx.forUpdate():
                 self.visit(ctx.forUpdate().assignmentStatement())
 
         self.tabla.pop_scope()
 
+    def visitBreakStmt(self, ctx):
+        raise BreakException()
+
+    def visitContinueStmt(self, ctx):
+        raise ContinueException()
+
+    # =========================
+    # IMPORT (no-op)
+    # =========================
+    def visitImportStmt(self, ctx):
+        # No hace nada por ahora
+        return
+
+    # =========================
+    # CONDICIONES
+    # =========================
     def visitCondition(self, ctx):
-        if ctx.AND(): return self.visit(ctx.condition(0)) and self.visit(ctx.condition(1))
-        if ctx.OR(): return self.visit(ctx.condition(0)) or self.visit(ctx.condition(1))
-        if ctx.NOT(): return not self.visit(ctx.condition(0))
+
+        if ctx.AND():
+            return self.visit(ctx.condition(0)) and self.visit(ctx.condition(1))
+
+        if ctx.OR():
+            return self.visit(ctx.condition(0)) or self.visit(ctx.condition(1))
+
+        if ctx.NOT():
+            return not self.visit(ctx.condition(0))
 
         if ctx.relop():
             a = self.visit(ctx.expr(0))
             b = self.visit(ctx.expr(1))
             op = ctx.relop().getText()
+
             return {
                 '>': a > b,
                 '<': a < b,
@@ -165,36 +209,56 @@ class InterpreterVisitor(gramatica_v3Visitor):
                 '!=': a != b
             }[op]
 
-        if ctx.TRUE(): return True
-        if ctx.FALSE(): return False
+        if ctx.TRUE():
+            return True
 
-        if ctx.condition(): return self.visit(ctx.condition(0))
+        if ctx.FALSE():
+            return False
 
+        if ctx.condition():
+            return self.visit(ctx.condition(0))
+
+    # =========================
+    # EXPRESIONES
+    # =========================
     def visitExpr(self, ctx):
-        if ctx.NUM(): return int(ctx.NUM().getText())
-        if ctx.FLOAT(): return float(ctx.FLOAT().getText())
-        if ctx.STRING(): return ctx.STRING().getText()[1:-1]
-        if ctx.TRUE(): return True
-        if ctx.FALSE(): return False
 
-        # acceso array
+        # LITERALES
+        if ctx.NUM():
+            return int(ctx.NUM().getText())
+
+        if ctx.FLOAT():
+            return float(ctx.FLOAT().getText())
+
+        if ctx.STRING():
+            return ctx.STRING().getText()[1:-1]
+
+        if ctx.TRUE():
+            return True
+
+        if ctx.FALSE():
+            return False
+
+        # ARRAY ACCESS
         if ctx.getChildCount() == 4 and ctx.getChild(1).getText() == '[':
-            nombre = ctx.getChild(0).getText()
+            nombre = ctx.VAR().getText()
+            arr = self.tabla.obtener(nombre)["valor"]
             index = self.visit(ctx.expr(0))
 
-            array = self.tabla.obtener(nombre)["valor"]
-
-            if not isinstance(array, list):
+            if not isinstance(arr, list):
                 raise Exception("Error: variable no es un array")
 
-            return array[index]
+            return arr[index]
 
+        # VARIABLE
         if ctx.VAR():
             return self.tabla.obtener(ctx.VAR().getText())["valor"]
 
+        # FUNCTION CALL
         if ctx.functionCall():
             return self.visit(ctx.functionCall())
 
+        # OPERACIONES
         if len(ctx.expr()) == 2:
             a = self.visit(ctx.expr(0))
             b = self.visit(ctx.expr(1))
@@ -206,20 +270,13 @@ class InterpreterVisitor(gramatica_v3Visitor):
             if op == '/': return a // b
             if op == '%': return a % b
 
+        # PARENTESIS
         if ctx.expr():
             return self.visit(ctx.expr(0))
-        
-    def visitImportStmt(self, ctx):
-        # no hace nada en ejecución por ahora
-        return
 
-    def visitBreakStmt(self, ctx):
-        raise BreakException()
-
-    def visitContinueStmt(self, ctx):
-        raise ContinueException()
-
+    # =========================
+    # PRINT
+    # =========================
     def visitPrintStmt(self, ctx):
         valor = self.visit(ctx.expr())
         print(valor)
-        return

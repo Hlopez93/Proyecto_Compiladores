@@ -1,4 +1,4 @@
-from gramatica_v3Visitor import gramatica_v3Visitor
+from compiler.gramatica_v3Visitor import gramatica_v3Visitor
 
 class TACGenerator(gramatica_v3Visitor):
 
@@ -7,12 +7,11 @@ class TACGenerator(gramatica_v3Visitor):
         self.temp_count = 0
         self.label_count = 0
 
-        self.break_stack = []
-        self.continue_stack = []
+        self.loop_stack = []  # para break / continue
 
-    # ========================
+    # =========================
     # UTILIDADES
-    # ========================
+    # =========================
     def new_temp(self):
         self.temp_count += 1
         return f"t{self.temp_count}"
@@ -21,22 +20,19 @@ class TACGenerator(gramatica_v3Visitor):
         self.label_count += 1
         return f"L{self.label_count}"
 
-    def emit(self, instr):
-        self.code.append(instr)
+    def emit(self, line):
+        self.code.append(line)
 
-    def get_code(self):
-        return "\n".join(self.code)
-
-    # ========================
+    # =========================
     # ROOT
-    # ========================
+    # =========================
     def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
-    # ========================
+    # =========================
     # DECLARACIÓN
-    # ========================
+    # =========================
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
@@ -45,24 +41,29 @@ class TACGenerator(gramatica_v3Visitor):
 
         if ctx.arrayLiteral():
             valores = [self.visit(e) for e in ctx.arrayLiteral().expr()]
-            self.emit(f"{nombre} = [{', '.join(map(str, valores))}]")
+            self.emit(f"{nombre} = [{', '.join(valores)}]")
 
         elif ctx.expr():
             val = self.visit(ctx.expr())
             self.emit(f"{nombre} = {val}")
 
-    # ========================
+    # =========================
     # ASIGNACIÓN
-    # ========================
+    # =========================
+    def visitAssignment(self, ctx):
+        self.visit(ctx.assignmentStatement())
+
     def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
         val = self.visit(ctx.expr())
         self.emit(f"{nombre} = {val}")
 
-    # ========================
+    # =========================
     # EXPRESIONES
-    # ========================
+    # =========================
     def visitExpr(self, ctx):
+
+        # LITERALES
         if ctx.NUM():
             return ctx.NUM().getText()
 
@@ -72,19 +73,30 @@ class TACGenerator(gramatica_v3Visitor):
         if ctx.STRING():
             return ctx.STRING().getText()
 
-        if ctx.VAR():
-            return ctx.VAR().getText()
+        if ctx.TRUE():
+            return "true"
 
-        # acceso array: a[i]
+        if ctx.FALSE():
+            return "false"
+
+        # ARRAY ACCESS
         if ctx.getChildCount() == 4 and ctx.getChild(1).getText() == '[':
-            nombre = ctx.getChild(0).getText()
+            nombre = ctx.VAR().getText()
             index = self.visit(ctx.expr(0))
 
             temp = self.new_temp()
             self.emit(f"{temp} = {nombre}[{index}]")
             return temp
 
-        # binaria
+        # VARIABLE
+        if ctx.VAR():
+            return ctx.VAR().getText()
+
+        # FUNCTION CALL
+        if ctx.functionCall():
+            return self.visit(ctx.functionCall())
+
+        # OPERACIONES
         if len(ctx.expr()) == 2:
             left = self.visit(ctx.expr(0))
             right = self.visit(ctx.expr(1))
@@ -94,31 +106,36 @@ class TACGenerator(gramatica_v3Visitor):
             self.emit(f"{temp} = {left} {op} {right}")
             return temp
 
+        # PARENTESIS
         if ctx.expr():
             return self.visit(ctx.expr(0))
 
-    # ========================
-    # CONDICIÓN
-    # ========================
+    # =========================
+    # CONDICIONES
+    # =========================
     def visitCondition(self, ctx):
+
         if ctx.relop():
-            a = self.visit(ctx.expr(0))
-            b = self.visit(ctx.expr(1))
+            left = self.visit(ctx.expr(0))
+            right = self.visit(ctx.expr(1))
             op = ctx.relop().getText()
-            return f"{a} {op} {b}"
+
+            temp = self.new_temp()
+            self.emit(f"{temp} = {left} {op} {right}")
+            return temp
 
         if ctx.AND():
-            a = self.visit(ctx.condition(0))
-            b = self.visit(ctx.condition(1))
+            left = self.visit(ctx.condition(0))
+            right = self.visit(ctx.condition(1))
             temp = self.new_temp()
-            self.emit(f"{temp} = {a} && {b}")
+            self.emit(f"{temp} = {left} && {right}")
             return temp
 
         if ctx.OR():
-            a = self.visit(ctx.condition(0))
-            b = self.visit(ctx.condition(1))
+            left = self.visit(ctx.condition(0))
+            right = self.visit(ctx.condition(1))
             temp = self.new_temp()
-            self.emit(f"{temp} = {a} || {b}")
+            self.emit(f"{temp} = {left} || {right}")
             return temp
 
         if ctx.NOT():
@@ -133,120 +150,92 @@ class TACGenerator(gramatica_v3Visitor):
         if ctx.FALSE():
             return "false"
 
-        if ctx.condition():
-            return self.visit(ctx.condition(0))
-
-    # ========================
+    # =========================
     # IF
-    # ========================
+    # =========================
     def visitIfStatement(self, ctx):
+
         cond = self.visit(ctx.condition())
 
-        Ltrue = self.new_label()
-        Lend = self.new_label()
-
-        self.emit(f"if {cond} goto {Ltrue}")
+        label_true = self.new_label()
+        label_end = self.new_label()
 
         if ctx.ELSE():
+            label_false = self.new_label()
+
+            self.emit(f"if {cond} goto {label_true}")
+            self.emit(f"goto {label_false}")
+
+            # THEN
+            self.emit(f"{label_true}:")
+            self.visit(ctx.block(0))
+            self.emit(f"goto {label_end}")
+
+            # ELSE
+            self.emit(f"{label_false}:")
             self.visit(ctx.block(1))
 
-        self.emit(f"goto {Lend}")
-        self.emit(f"{Ltrue}:")
+        else:
+            self.emit(f"if {cond} goto {label_true}")
+            self.emit(f"goto {label_end}")
 
-        self.visit(ctx.block(0))
+            self.emit(f"{label_true}:")
+            self.visit(ctx.block(0))
 
-        self.emit(f"{Lend}:")
+        self.emit(f"{label_end}:")
 
-    # ========================
+    # =========================
     # WHILE
-    # ========================
+    # =========================
     def visitWhileStatement(self, ctx):
-        Lstart = self.new_label()
-        Lend = self.new_label()
 
-        self.break_stack.append(Lend)
-        self.continue_stack.append(Lstart)
+        label_cond = self.new_label()
+        label_body = self.new_label()
+        label_end = self.new_label()
 
-        self.emit(f"{Lstart}:")
+        self.emit(f"{label_cond}:")
 
         cond = self.visit(ctx.condition())
-        self.emit(f"if not {cond} goto {Lend}")
 
+        self.emit(f"if {cond} goto {label_body}")
+        self.emit(f"goto {label_end}")
+
+        # LOOP STACK
+        self.loop_stack.append({
+            "break": label_end,
+            "continue": label_cond
+        })
+
+        # BODY
+        self.emit(f"{label_body}:")
         self.visit(ctx.block())
-        self.emit(f"goto {Lstart}")
+        self.emit(f"goto {label_cond}")
 
-        self.emit(f"{Lend}:")
+        self.loop_stack.pop()
 
-        self.break_stack.pop()
-        self.continue_stack.pop()
+        self.emit(f"{label_end}:")
 
-    # ========================
-    # FOR
-    # ========================
-    def visitForStatement(self, ctx):
-        if ctx.forInit():
-            self.visit(ctx.forInit())
-
-        Lstart = self.new_label()
-        Lupdate = self.new_label()
-        Lend = self.new_label()
-
-        self.break_stack.append(Lend)
-        self.continue_stack.append(Lupdate)
-
-        self.emit(f"{Lstart}:")
-
-        if ctx.condition():
-            cond = self.visit(ctx.condition())
-            self.emit(f"if not {cond} goto {Lend}")
-
-        self.visit(ctx.block())
-
-        self.emit(f"{Lupdate}:")
-
-        if ctx.forUpdate():
-            self.visit(ctx.forUpdate())
-
-        self.emit(f"goto {Lstart}")
-        self.emit(f"{Lend}:")
-
-        self.break_stack.pop()
-        self.continue_stack.pop()
-
-    # ========================
+    # =========================
     # BREAK / CONTINUE
-    # ========================
+    # =========================
     def visitBreakStmt(self, ctx):
-        self.emit(f"goto {self.break_stack[-1]}")
+        target = self.loop_stack[-1]["break"]
+        self.emit(f"goto {target}")
 
     def visitContinueStmt(self, ctx):
-        self.emit(f"goto {self.continue_stack[-1]}")
+        target = self.loop_stack[-1]["continue"]
+        self.emit(f"goto {target}")
 
-    # ========================
-    # PRINT
-    # ========================
-    def visitPrintStmt(self, ctx):
-        val = self.visit(ctx.expr())
-        self.emit(f"print {val}")
-
-    # ========================
-    # RETURN
-    # ========================
-    def visitReturnStmt(self, ctx):
-        if ctx.expr():
-            val = self.visit(ctx.expr())
-            self.emit(f"return {val}")
-        else:
-            self.emit("return")
-
-    # ========================
+    # =========================
     # FUNCIONES
-    # ========================
+    # =========================
     def visitFunctionDecl(self, ctx):
+
         nombre = ctx.VAR().getText()
 
         self.emit(f"begin_func {nombre}")
 
+        # PARAMS
         if ctx.paramList():
             for p in ctx.paramList().param():
                 self.emit(f"param {p.VAR().getText()}")
@@ -255,10 +244,8 @@ class TACGenerator(gramatica_v3Visitor):
 
         self.emit(f"end_func {nombre}")
 
-    # ========================
-    # LLAMADAS A FUNCIÓN
-    # ========================
     def visitFunctionCall(self, ctx):
+
         nombre = ctx.VAR().getText()
 
         args = []
@@ -272,3 +259,28 @@ class TACGenerator(gramatica_v3Visitor):
         self.emit(f"{temp} = call {nombre}, {len(args)}")
 
         return temp
+
+    # =========================
+    # RETURN
+    # =========================
+    def visitReturnStmt(self, ctx):
+
+        if ctx.expr():
+            val = self.visit(ctx.expr())
+            self.emit(f"return {val}")
+        else:
+            self.emit("return")
+
+    # =========================
+    # PRINT
+    # =========================
+    def visitPrintStmt(self, ctx):
+
+        val = self.visit(ctx.expr())
+        self.emit(f"print {val}")
+
+    # =========================
+    # IMPORT (no-op)
+    # =========================
+    def visitImportStmt(self, ctx):
+        return

@@ -4,7 +4,8 @@ grammar gramatica_v3;
 root : PROGRAM LLA statement* LLC EOF ;
 
 // SENTENCIAS
-statement : declaration
+statement
+    : declaration
     | assignment
     | ifStatement
     | whileStatement
@@ -18,20 +19,23 @@ statement : declaration
     ;
 
 // DECLARACION
-declaration : declarationStatement ';' ;
-declarationStatement : TVAR tipo VAR (ASIG (expr | arrayLiteral))? ;
+declaration : declarationStatement SEMI ;
+
+declarationStatement : DECL tipo VAR (ASIG (expr | arrayLiteral))? ;
 
 // TIPOS
-tipo : INT
-     | FLOAT_T
-     | STRING_T
-     | BOOL
-     | VOID
-     | tipo '[' ']'
-     ;
+tipo : baseTipo ('[' ']')? ;
+
+baseTipo
+    : INT
+    | FLOAT_T
+    | STRING_T
+    | BOOL
+    | VOID
+    ;
 
 // ASIGNACION
-assignment : assignmentStatement ';' ;
+assignment : assignmentStatement SEMI ;
 assignmentStatement : VAR ASIG expr ;
 
 // IF
@@ -41,35 +45,36 @@ ifStatement : IF PAI condition PAD block (ELSE block)? ;
 whileStatement : WHILE PAI condition PAD block ;
 
 // FOR
-forStatement : FOR PAI forInit? ';' condition? ';' forUpdate? PAD block ;
+forStatement : FOR PAI forInit? SEMI condition? SEMI forUpdate? PAD block ;
 
 forInit : declarationStatement | assignmentStatement ;
 forUpdate : assignmentStatement ;
 
 // FUNCIONES
-functionDecl : FUNCTION tipo VAR PAI paramList? PAD block ;
+functionDecl : tipo VAR PAI paramList? PAD block ;
 
-paramList : param (',' param)* ;
+paramList : param (COMMA param)* ;
 
 param : tipo VAR ;
 
-returnStmt : RETURN expr? ';' ;
+returnStmt : RETURN expr? SEMI ;
 
 // PRINT
-printStmt : PRINT PAI expr PAD ';' ;
+printStmt : PRINT PAI expr PAD SEMI ;
 
 // IMPORT
-importStmt : IMPORT VAR ';' ;
+importStmt : IMPORT VAR SEMI ;
 
-// BREAK y CONTINUE
-breakStmt : BREAK ';' ;
-continueStmt : CONTINUE ';' ;
+// BREAK / CONTINUE
+breakStmt : BREAK SEMI ;
+continueStmt : CONTINUE SEMI ;
 
-// ESTRUCTURA DE BLOQUE
+// BLOQUE
 block : LLA statement* LLC ;
 
 // CONDICION
-condition : condition AND condition
+condition
+    : condition AND condition
     | condition OR condition
     | NOT condition
     | expr relop expr
@@ -79,7 +84,8 @@ condition : condition AND condition
     ;
 
 // EXPRESIONES
-expr : PAI expr PAD
+expr
+    : PAI expr PAD
     | expr (MUL | DIV | MOD) expr
     | expr (SUM | RES) expr
     | expr relop expr
@@ -96,23 +102,26 @@ expr : PAI expr PAD
 // FUNCION CALL
 functionCall : VAR PAI argList? PAD ;
 
-argList : expr (',' expr)* ;
+argList : expr (COMMA expr)* ;
 
 // ARRAY
-arrayLiteral : '[' expr (',' expr)* ']' ;
+arrayLiteral : '[' expr (COMMA expr)* ']' ;
 
-// OPERADORES RELACIONALES
-relop : '>'
-    | '<'
-    | '>='
-    | '<='
-    | '=='
-    | '!='
+// RELACIONALES
+relop
+    : GT
+    | LT
+    | GTE
+    | LTE
+    | EQ
+    | NEQ
     ;
 
 // TOKENS
 PROGRAM : 'program' ;
-TVAR : 'var'
+
+DECL
+    : 'var'
     | 'let'
     | 'const'
     ;
@@ -128,11 +137,8 @@ ELSE : 'else' ;
 WHILE : 'while' ;
 FOR : 'for' ;
 
-FUNCTION : 'function' ;
 RETURN : 'return' ;
-
 PRINT : 'print' ;
-
 IMPORT : 'import' ;
 
 BREAK : 'break' ;
@@ -153,23 +159,40 @@ AND : '&&' ;
 OR  : '||' ;
 NOT : '!' ;
 
+GT : '>' ;
+LT : '<' ;
+GTE : '>=' ;
+LTE : '<=' ;
+EQ : '==' ;
+NEQ : '!=' ;
+
 PAI : '(' ;
 PAD : ')' ;
 
 LLA : '{' ;
 LLC : '}' ;
 
+SEMI : ';' ;
+COMMA : ',' ;
+
+// LITERALES
 NUM : [0-9]+ ;
 FLOAT : [0-9]+ '.' [0-9]+ ;
 STRING : '"' .*? '"' ;
 
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 
+// COMENTARIOS
+LINE_COMMENT
+    : '//' ~[\r\n]* -> skip
+    ;
+
+// ESPACIOS
 WS : [ \t\r\n]+ -> skip ;
 
 // ERROR LEXICO
-ERROR_CHAR 
-    : . 
+ERROR_CHAR
+    : .
     {
         raise Exception(f"[Error Léxico] Línea {self.line}, Columna {self.column}: Símbolo no reconocido '{self.text}'")
     }

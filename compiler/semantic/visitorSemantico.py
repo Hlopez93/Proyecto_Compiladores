@@ -1,93 +1,91 @@
-from gramatica_v3Visitor import gramatica_v3Visitor
-from gramatica_v3Parser import gramatica_v3Parser
-from tablaSimbolos import TablaSimbolos
+from compiler.gramatica_v3Visitor import gramatica_v3Visitor
+from compiler.semantic.tablaSimbolos import TablaSimbolos
 
 class SemanticVisitor(gramatica_v3Visitor):
 
     def __init__(self):
         self.tabla = TablaSimbolos()
         self.current_function = None
-        self.loop_depth = 0
+        self.in_loop = 0  # control para break/continue
 
+    # =========================
+    # ROOT
+    # =========================
     def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
+    # =========================
+    # BLOCK
+    # =========================
     def visitBlock(self, ctx):
         self.tabla.push_scope()
         for stmt in ctx.statement():
             self.visit(stmt)
         self.tabla.pop_scope()
 
+    # =========================
+    # DECLARACIÓN
+    # =========================
     def visitDeclaration(self, ctx):
-        stmt = ctx.declarationStatement()
-
-        nombre = stmt.VAR().getText()
-        tipo = stmt.tipo().getText()
-
-        if stmt.expr():
-            tipo_expr = self.visit(stmt.expr())
-            if tipo_expr != tipo:
-                raise Exception("Error semántico: tipos incompatibles en declaración")
-
-        self.tabla.declarar(nombre, tipo)
+        self.visit(ctx.declarationStatement())
 
     def visitDeclarationStatement(self, ctx):
         nombre = ctx.VAR().getText()
         tipo = ctx.tipo().getText()
+        decl = ctx.DECL().getText()  # var | let | const
 
-        es_array = "[]" in tipo
-
-        if ctx.expr():
-            tipo_expr = self.visit(ctx.expr())
-            if tipo_expr != tipo:
-                raise Exception("Error semántico: tipos incompatibles en declaración")
+        valor_tipo = None
 
         if ctx.arrayLiteral():
-            if not es_array:
-                raise Exception("Error: asignación de array a variable no array")
+            valor_tipo = self.visit(ctx.arrayLiteral())
 
-            # validar elementos del array
-            tipos = [self.visit(e) for e in ctx.arrayLiteral().expr()]
-            base = tipo.replace("[]", "")
+        elif ctx.expr():
+            valor_tipo = self.visit(ctx.expr())
 
-            for t in tipos:
-                if t != base:
-                    raise Exception("Error: tipos incompatibles dentro del array")
+        # Validación de tipos
+        if valor_tipo:
+            if valor_tipo != tipo:
+                raise Exception(f"Error semántico: tipos incompatibles en declaración '{nombre}'")
 
-        self.tabla.declarar(nombre, tipo)
+        self.tabla.declarar(
+            nombre,
+            tipo,
+            mutable=(decl != "const")
+        )
 
+    # =========================
+    # ARRAY
+    # =========================
+    def visitArrayLiteral(self, ctx):
+        tipos = [self.visit(e) for e in ctx.expr()]
+
+        if len(set(tipos)) != 1:
+            raise Exception("Error semántico: array con tipos mixtos")
+
+        return tipos[0] + "[]"
+
+    # =========================
+    # ASIGNACIÓN
+    # =========================
     def visitAssignment(self, ctx):
-        stmt = ctx.assignmentStatement()
+        self.visit(ctx.assignmentStatement())
 
-        nombre = stmt.VAR().getText()
-        var = self.tabla.obtener(nombre)
-
-        tipo_expr = self.visit(stmt.expr())
-
-        if var["tipo"] != tipo_expr:
-            raise Exception("Error semántico: tipos incompatibles en asignación")
-        
     def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
         var = self.tabla.obtener(nombre)
 
+        if not var.get("mutable", True):
+            raise Exception(f"Error: '{nombre}' es const y no puede modificarse")
+
         tipo_expr = self.visit(ctx.expr())
 
-        if var["tipo"] != tipo_expr:
+        if tipo_expr != var["tipo"]:
             raise Exception("Error semántico: tipos incompatibles en asignación")
-        
-    def visitArrayLiteral(self, ctx):
-        # devuelve tipo del array: int[], float[], etc.
-        tipos = [self.visit(e) for e in ctx.expr()]
-        base = tipos[0]
 
-        for t in tipos:
-            if t != base:
-                raise Exception("Error: array con tipos mixtos")
-
-        return base + "[]"
-
+    # =========================
+    # FUNCIONES
+    # =========================
     def visitFunctionDecl(self, ctx):
         nombre = ctx.VAR().getText()
         tipo_retorno = ctx.tipo().getText()
@@ -103,6 +101,7 @@ class SemanticVisitor(gramatica_v3Visitor):
         self.current_function = tipo_retorno
 
         self.tabla.push_scope()
+
         for n, t in parametros:
             self.tabla.declarar(n, t)
 
@@ -140,6 +139,9 @@ class SemanticVisitor(gramatica_v3Visitor):
 
         return func["retorno"]
 
+    # =========================
+    # CONTROL DE FLUJO
+    # =========================
     def visitIfStatement(self, ctx):
         if self.visit(ctx.condition()) != "bool":
             raise Exception("Error: condición de if debe ser bool")
@@ -152,13 +154,12 @@ class SemanticVisitor(gramatica_v3Visitor):
         if self.visit(ctx.condition()) != "bool":
             raise Exception("Error: condición de while debe ser bool")
 
-        self.loop_depth += 1
+        self.in_loop += 1
         self.visit(ctx.block())
-        self.loop_depth -= 1
+        self.in_loop -= 1
 
     def visitForStatement(self, ctx):
         self.tabla.push_scope()
-        self.loop_depth += 1
 
         if ctx.forInit():
             if ctx.forInit().declarationStatement():
@@ -170,15 +171,40 @@ class SemanticVisitor(gramatica_v3Visitor):
             if self.visit(ctx.condition()) != "bool":
                 raise Exception("Error: condición de for debe ser bool")
 
-        self.visit(ctx.block())
+        self.in_loop += 1
+
+        self.tabla.push_scope()
+        for stmt in ctx.block().statement():
+            self.visit(stmt)
+        self.tabla.pop_scope()
 
         if ctx.forUpdate():
             self.visit(ctx.forUpdate().assignmentStatement())
 
-        self.loop_depth -= 1
+        self.in_loop -= 1
+
         self.tabla.pop_scope()
 
+    def visitBreakStmt(self, ctx):
+        if self.in_loop == 0:
+            raise Exception("Error: break fuera de ciclo")
+
+    def visitContinueStmt(self, ctx):
+        if self.in_loop == 0:
+            raise Exception("Error: continue fuera de ciclo")
+
+    # =========================
+    # IMPORT
+    # =========================
+    def visitImportStmt(self, ctx):
+        # No se valida aún (fase futura)
+        return
+
+    # =========================
+    # CONDICIONES
+    # =========================
     def visitCondition(self, ctx):
+
         if ctx.AND() or ctx.OR():
             if self.visit(ctx.condition(0)) != "bool" or self.visit(ctx.condition(1)) != "bool":
                 raise Exception("Error: operadores lógicos requieren booleanos")
@@ -200,25 +226,36 @@ class SemanticVisitor(gramatica_v3Visitor):
         if ctx.condition():
             return self.visit(ctx.condition(0))
 
+    # =========================
+    # EXPRESIONES
+    # =========================
     def visitExpr(self, ctx):
-        if ctx.NUM(): return "int"
-        if ctx.FLOAT(): return "float"
-        if ctx.STRING(): return "string"
-        if ctx.TRUE() or ctx.FALSE(): return "bool"
 
-        # acceso array
+        if ctx.NUM():
+            return "int"
+
+        if ctx.FLOAT():
+            return "float"
+
+        if ctx.STRING():
+            return "string"
+
+        if ctx.TRUE() or ctx.FALSE():
+            return "bool"
+
+        # ARRAY ACCESS
         if ctx.getChildCount() == 4 and ctx.getChild(1).getText() == '[':
-            nombre = ctx.getChild(0).getText()
-            tipo = self.tabla.obtener(nombre)["tipo"]
+            nombre = ctx.VAR().getText()
+            var = self.tabla.obtener(nombre)
 
-            if "[]" not in tipo:
+            if "[]" not in var["tipo"]:
                 raise Exception("Error: variable no es un array")
 
-            index_type = self.visit(ctx.expr(0))
-            if index_type != "int":
-                raise Exception("Error: índice de array debe ser int")
+            tipo_index = self.visit(ctx.expr(0))
+            if tipo_index != "int":
+                raise Exception("Error: índice debe ser int")
 
-            return tipo.replace("[]", "")
+            return var["tipo"].replace("[]", "")
 
         if ctx.VAR():
             return self.tabla.obtener(ctx.VAR().getText())["tipo"]
@@ -231,31 +268,15 @@ class SemanticVisitor(gramatica_v3Visitor):
             t2 = self.visit(ctx.expr(1))
             op = ctx.getChild(1).getText()
 
-            if op == '+':
-                if t1 == "string" and t2 == "string":
-                    return "string"
-
             if t1 != t2:
                 raise Exception("Error: operación entre tipos incompatibles")
 
             if op == '%':
                 if t1 != "int":
-                    raise Exception("Error: % solo permitido en enteros")
+                    raise Exception("Error: % solo válido para enteros")
                 return "int"
 
             return t1
-        
-        def visitBreakStmt(self, ctx):
-            if self.loop_depth == 0:
-                raise Exception("Error: break fuera de ciclo")
-
-        def visitContinueStmt(self, ctx):
-            if self.loop_depth == 0:
-                raise Exception("Error: continue fuera de ciclo")
-            
-        def visitImportStmt(self, ctx):
-            # validación mínima
-            return None
 
         if ctx.expr():
             return self.visit(ctx.expr(0))
