@@ -1,0 +1,9 @@
+program {
+
+    var int x = 10;
+    var string y = "hola";
+
+    x = y; // tipos incompatibles
+
+    print(x);
+}

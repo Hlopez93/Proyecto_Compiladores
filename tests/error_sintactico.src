@@ -1,0 +1,7 @@
+program {
+
+    var int x = 10
+    var int y = 20;
+
+    print(x + y);
+}

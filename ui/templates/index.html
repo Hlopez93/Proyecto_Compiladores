@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Compilador</title>
+        <!-- CodeMirror -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+        <style>
+            body {
+                margin: 0;
+                font-family: Arial;
+                background: #1e1e1e;
+                color: white;
+            }
+            h2 {
+                margin: 10px;
+            }
+            section {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                padding: 10px;
+            }
+            /* Editor */
+            .editor-container {
+                grid-column: span 2;
+            }
+            .CodeMirror {
+                height: 250px;
+                border-radius: 5px;
+            }
+            button {
+                margin-top: 10px;
+                padding: 10px;
+                background: #007acc;
+                border: none;
+                color: white;
+                cursor: pointer;
+            }
+            button:hover {
+                background: #005f99;
+            }
+            .panel {
+                background: #2d2d2d;
+                padding: 10px;
+                border-radius: 5px;
+            }
+            pre {
+                background: #111;
+                padding: 10px;
+                overflow: auto;
+                max-height: 200px;
+            }
+            /* Estados */
+            .ok {
+                color: #4CAF50;
+            }
+            .error {
+                color: #ff5555;
+            }
+            /* Error highlight */
+            .line-error {
+                background: rgba(255, 0, 0, 0.2);
+            }
+        </style>
+    </head>
+    <body>
+        <section>
+            <h2>Compilador v3 - Grupo #4</h2>
+            <!-- Editor -->
+            <div class="editor-container">
+                <textarea id="codigo"></textarea>
+                <button onclick="compilar()">Compilar</button>
+            </div>
+            <!-- Fases -->
+            <div class="panel">
+                <h3>Fases</h3>
+                <ul id="fases"></ul>
+            </div>
+            <!-- Error -->
+            <div class="panel">
+                <h3>Error</h3>
+                <pre id="error"></pre>
+            </div>
+            <!-- TAC -->
+            <div class="panel">
+                <h3>TAC</h3>
+                <pre id="tac"></pre>
+            </div>
+            <!-- IR -->
+            <div class="panel">
+                <h3>LLVM IR</h3>
+                <pre id="ir"></pre>
+            </div>
+            <!-- Consola -->
+            <div class="panel" style="grid-column: span 2;">
+                <h3>Consola</h3>
+                <pre id="output"></pre>
+            </div>
+        </section>
+        <script>
+            // INIT EDITOR
+            const editor = CodeMirror.fromTextArea(document.getElementById("codigo"), {
+                lineNumbers: true,
+                mode: "javascript",
+                theme: "default",
+                indentUnit: 4,
+                tabSize: 4
+            });
+            // COMPILAR
+            function compilar() {
+                // limpiar errores visuales previos
+                editor.eachLine(line => {
+                    editor.removeLineClass(line, "background", "line-error");
+                });
+                fetch("/compilar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        codigo: editor.getValue()
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    // FASES
+                    let fases = document.getElementById("fases");
+                    fases.innerHTML = "";
+                    data.fases.forEach(f => {
+                        let li = document.createElement("li");
+                        let estadoClass = f[1] === "OK" ? "ok" : "error";
+                        li.innerHTML = `<span class="${estadoClass}">${f[0]}: ${f[1]}</span> (${f[2]} ms)`;
+                        fases.appendChild(li);
+                    });
+                    // ERROR
+                    document.getElementById("error").textContent = data.error || "";
+                    // intentar resaltar línea del error
+                    if (data.error) {
+                        let match = data.error.match(/Línea (\d+)/);
+                        if (match) {
+                            let line = parseInt(match[1]) - 1;
+                            editor.addLineClass(line, "background", "line-error");
+                            editor.setCursor({ line: line, ch: 0 });
+                        }
+                    }
+                    // OUTPUTS
+                    document.getElementById("tac").textContent = data.tac || "";
+                    document.getElementById("ir").textContent = data.ir || "";
+                    document.getElementById("output").textContent = data.output || "";
+                });
+            }
+        </script>
+    </body>
+</html>
