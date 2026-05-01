@@ -57,7 +57,7 @@ class TablaSimbolos:
 
         self.funciones[nombre] = {
             "retorno": tipo_retorno,
-            "parametros": parametros,  # [(nombre, tipo)]
+            "parametros": parametros,
             "ctx": ctx
         }
 
