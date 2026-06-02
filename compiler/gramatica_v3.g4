@@ -16,6 +16,7 @@ statement
     | importStmt
     | breakStmt
     | continueStmt
+    | switchStatement          // ★ IMPLEMENTACIÓN
     ;
 
 // ================= DECLARACION =================
@@ -48,6 +49,12 @@ forStatement : FOR PAI forInit? SEMI condition? SEMI forUpdate? PAD block ;
 forInit : declarationStatement | assignmentStatement ;
 forUpdate : assignmentStatement ;
 
+// ★ ================= SWITCH / CASE =================
+switchStatement : SWITCH PAI expr PAD LLA caseClause* defaultClause? LLC ;
+caseClause      : CASE literal COLON statement* ;
+defaultClause   : DEFAULT COLON statement* ;
+literal         : NUM | FLOAT | STRING ;
+
 // ================= FUNCIONES =================
 functionDecl : tipo VAR PAI paramList? PAD block ;
 paramList : param (COMMA param)* ;
@@ -78,7 +85,7 @@ condition
     | PAI condition PAD
     ;
 
-// ================= EXPRESIONES (FIX REAL) =================
+// ================= EXPRESIONES =================
 expr
     : expr SUM term
     | expr RES term
@@ -116,63 +123,63 @@ relop : GT | LT | GTE | LTE | EQ | NEQ ;
 
 // ================= TOKENS =================
 PROGRAM : 'program' ;
+DECL    : 'var' | 'let' | 'const' ;
 
-DECL : 'var' | 'let' | 'const' ;
-
-INT : 'int' ;
-FLOAT_T : 'float' ;
+INT      : 'int' ;
+FLOAT_T  : 'float' ;
 STRING_T : 'string' ;
-BOOL : 'bool' ;
-VOID : 'void' ;
+BOOL     : 'bool' ;
+VOID     : 'void' ;
 
-IF : 'if' ;
-ELSE : 'else' ;
-WHILE : 'while' ;
-FOR : 'for' ;
+IF       : 'if' ;
+ELSE     : 'else' ;
+WHILE    : 'while' ;
+FOR      : 'for' ;
 
-RETURN : 'return' ;
-PRINT : 'print' ;
-IMPORT : 'import' ;
+// ★ IMPLEMENTACIÓN DE TOKENS
+SWITCH  : 'switch' ;
+CASE    : 'case' ;
+DEFAULT : 'default' ;
+COLON   : ':' ;
 
-BREAK : 'break' ;
+RETURN   : 'return' ;
+PRINT    : 'print' ;
+IMPORT   : 'import' ;
+BREAK    : 'break' ;
 CONTINUE : 'continue' ;
 
-TRUE : 'true' ;
+TRUE  : 'true' ;
 FALSE : 'false' ;
 
 ASIG : '=' ;
-
-SUM : '+' ;
-RES : '-' ;
-MUL : '*' ;
-DIV : '/' ;
-MOD : '%' ;
+SUM  : '+' ;
+RES  : '-' ;
+MUL  : '*' ;
+DIV  : '/' ;
+MOD  : '%' ;
 
 AND : '&&' ;
 OR  : '||' ;
 NOT : '!' ;
 
-GT : '>' ;
-LT : '<' ;
+GT  : '>'  ;
+LT  : '<'  ;
 GTE : '>=' ;
 LTE : '<=' ;
-EQ : '==' ;
+EQ  : '==' ;
 NEQ : '!=' ;
 
-PAI : '(' ;
-PAD : ')' ;
-
-LLA : '{' ;
-LLC : '}' ;
-
-SEMI : ';' ;
+PAI   : '(' ;
+PAD   : ')' ;
+LLA   : '{' ;
+LLC   : '}' ;
+SEMI  : ';' ;
 COMMA : ',' ;
 
-NUM : [0-9]+ ;
-FLOAT : [0-9]+ '.' [0-9]+ ;
+NUM    : [0-9]+ ;
+FLOAT  : [0-9]+ '.' [0-9]+ ;
 STRING : '"' .*? '"' ;
-
-VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
+VAR    : [a-zA-Z_][a-zA-Z0-9_]* ;
 
 LINE_COMMENT : '//' ~[\r\n]* -> skip ;
-WS : [ \t\r\n]+ -> skip ;
+WS           : [ \t\r\n]+    -> skip ;
