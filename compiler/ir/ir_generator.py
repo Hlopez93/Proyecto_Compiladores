@@ -360,3 +360,74 @@ class IRGenerator(gramatica_v3Visitor):
         global_str.initializer = ir.Constant(string_type, text_bytes)
 
         return self.builder.bitcast(global_str, ir.IntType(8).as_pointer())
+
+    # ================= SWITCH / CASE ★ IMPLEMENTACIÓN =================
+    def visitSwitchStatement(self, ctx):
+        ctrl_val = self.visit(ctx.expr())
+
+        # La instruccion switch de LLVM requiere un entero — si viene i1 (bool) lo extendemos
+        if isinstance(ctrl_val.type, ir.IntType) and ctrl_val.type.width == 1:
+            ctrl_val = self.builder.zext(ctrl_val, ir.IntType(32))
+
+        end_block = self.func.append_basic_block("switch_end")
+
+        # Si hay default, crea su bloque; si no, el default salta directo al end
+        if ctx.defaultClause():
+            default_block = self.func.append_basic_block("switch_default")
+        else:
+            default_block = end_block
+
+        # Instruccion switch nativa de LLVM
+        sw = self.builder.switch(ctrl_val, default_block)
+
+        # Crear un bloque por cada case y registrar su valor en la switch table
+        case_blocks = []
+        for case_clause in ctx.caseClause():
+            lit = case_clause.literal()
+            if lit.NUM():
+                case_val = ir.Constant(ir.IntType(32), int(lit.NUM().getText()))
+            elif lit.FLOAT():
+                # LLVM switch solo acepta enteros; convertimos el float a bits enteros
+                import struct
+                bits = struct.unpack('q', struct.pack('d', float(lit.FLOAT().getText())))[0]
+                case_val = ir.Constant(ir.IntType(64), bits)
+            else:
+                case_val = ir.Constant(ir.IntType(32), 0)
+
+            blk = self.func.append_basic_block(f"switch_case_{len(case_blocks)}")
+            sw.add_case(case_val, blk)
+            case_blocks.append(blk)
+
+        # Empujar end_block para que break dentro de un case sepa a donde saltar
+        self.loop_stack.append({"break": end_block, "continue": end_block})
+
+        # Generar cuerpo de cada case
+        for i, (case_clause, blk) in enumerate(zip(ctx.caseClause(), case_blocks)):
+            self.builder.position_at_start(blk)
+            for stmt in case_clause.statement():
+                self.visit(stmt)
+            # fall-through si no hubo break explicito
+            if not self.builder.block.is_terminated:
+                if i + 1 < len(case_blocks):
+                    self.builder.branch(case_blocks[i + 1])
+                elif ctx.defaultClause():
+                    self.builder.branch(default_block)
+                else:
+                    self.builder.branch(end_block)
+
+        # Generar cuerpo del default
+        if ctx.defaultClause():
+            self.builder.position_at_start(default_block)
+            for stmt in ctx.defaultClause().statement():
+                self.visit(stmt)
+            if not self.builder.block.is_terminated:
+                self.builder.branch(end_block)
+
+        self.loop_stack.pop()
+        self.builder.position_at_start(end_block)
+
+    def visitCaseClause(self, ctx):
+        pass  # visitado inline en visitSwitchStatement
+
+    def visitDefaultClause(self, ctx):
+        pass  # visitado inline en visitSwitchStatement

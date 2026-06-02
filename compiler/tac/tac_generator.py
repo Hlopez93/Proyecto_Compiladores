@@ -249,7 +249,7 @@ class TACGenerator(gramatica_v3Visitor):
         self.emit(f"{temp} = call {nombre}, {len(args)}")
         return temp
     
-    # ================= SWITCH / CASE ★ NUEVO v4 =================
+    # ================= SWITCH / CASE ★ IMPLEMENTACIÓN =================
     def visitSwitchStatement(self, ctx):
         ctrl = self.visit(ctx.expr())
 
