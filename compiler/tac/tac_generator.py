@@ -248,3 +248,60 @@ class TACGenerator(gramatica_v3Visitor):
         temp = self.new_temp()
         self.emit(f"{temp} = call {nombre}, {len(args)}")
         return temp
+    
+    # ================= SWITCH / CASE ★ NUEVO v4 =================
+    def visitSwitchStatement(self, ctx):
+        ctrl = self.visit(ctx.expr())
+
+        case_labels = [self.new_label() for _ in ctx.caseClause()]
+        default_label = self.new_label() if ctx.defaultClause() else None
+        end_label = self.new_label()
+
+        # --- Tabla de saltos (comparaciones encadenadas) ---
+        for i, case_clause in enumerate(ctx.caseClause()):
+            lit = case_clause.literal()
+            if lit.NUM():
+                val = lit.NUM().getText()
+            elif lit.FLOAT():
+                val = lit.FLOAT().getText()
+            else:
+                val = lit.STRING().getText()
+
+            t = self.new_temp()
+            self.emit(f"{t} = {ctrl} == {val}")
+            self.emit(f"if {t} goto {case_labels[i]}")
+
+        if default_label:
+            self.emit(f"goto {default_label}")
+        else:
+            self.emit(f"goto {end_label}")
+
+        # --- Cuerpo de cada case ---
+        self.break_stack.append(end_label)
+
+        for i, case_clause in enumerate(ctx.caseClause()):
+            self.emit(f"{case_labels[i]}:")
+            for stmt in case_clause.statement():
+                self.visit(stmt)
+            # fall-through: si no hubo break explícito, fluye al siguiente
+            if i + 1 < len(ctx.caseClause()):
+                self.emit(f"goto {case_labels[i + 1]}")
+            elif default_label:
+                self.emit(f"goto {default_label}")
+            else:
+                self.emit(f"goto {end_label}")
+
+        # --- Cuerpo del default ---
+        if ctx.defaultClause():
+            self.emit(f"{default_label}:")
+            for stmt in ctx.defaultClause().statement():
+                self.visit(stmt)
+
+        self.break_stack.pop()
+        self.emit(f"{end_label}:")
+
+    def visitCaseClause(self, ctx):
+        pass  # visitado inline en visitSwitchStatement
+
+    def visitDefaultClause(self, ctx):
+        pass  # visitado inline en visitSwitchStatement
