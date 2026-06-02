@@ -269,3 +269,51 @@ class SemanticVisitor(gramatica_v3Visitor):
         # Parenthesized expression: '(' expr ')'
         if ctx.getChildCount() == 3:
             return self.visit(ctx.expr())
+
+    # ================= SWITCH / CASE ★ IMPLEMENTACIÓN =================
+    def visitSwitchStatement(self, ctx):
+        tipo_ctrl = self.visit(ctx.expr())
+
+        if tipo_ctrl not in ("int", "float", "string"):
+            raise Exception(
+                f"Error semantico: switch requiere expresion de tipo int, "
+                f"float o string, se obtuvo '{tipo_ctrl}'"
+            )
+
+        for case_clause in ctx.caseClause():
+            lit = case_clause.literal()
+            if lit.NUM():
+                tipo_lit = "int"
+            elif lit.FLOAT():
+                tipo_lit = "float"
+            elif lit.STRING():
+                tipo_lit = "string"
+            else:
+                tipo_lit = "unknown"
+
+            if tipo_lit != tipo_ctrl:
+                raise Exception(
+                    f"Error semantico: case con literal '{lit.getText()}' "
+                    f"es de tipo '{tipo_lit}' pero el switch es de tipo '{tipo_ctrl}'"
+                )
+
+            self.visit(case_clause)
+
+        if ctx.defaultClause():
+            self.visit(ctx.defaultClause())
+
+    def visitCaseClause(self, ctx):
+        self.in_loop += 1   # habilita break dentro del case
+        self.tabla.push_scope()
+        for stmt in ctx.statement():
+            self.visit(stmt)
+        self.tabla.pop_scope()
+        self.in_loop -= 1
+
+    def visitDefaultClause(self, ctx):
+        self.in_loop += 1
+        self.tabla.push_scope()
+        for stmt in ctx.statement():
+            self.visit(stmt)
+        self.tabla.pop_scope()
+        self.in_loop -= 1
