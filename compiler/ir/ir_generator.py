@@ -6,6 +6,8 @@ class IRGenerator(gramatica_v3Visitor):
     def __init__(self):
         self.module = ir.Module(name="module")
 
+        self.module.triple = "x86_64-pc-linux-gnu"
+
         self.builder = None
         self.func = None
 
