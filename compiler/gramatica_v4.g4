@@ -1,4 +1,4 @@
-grammar gramatica_v3;
+grammar gramatica_v4;
 
 // PROGRAMA
 root : PROGRAM LLA statement* LLC EOF ;
@@ -16,11 +16,11 @@ statement
     | importStmt
     | breakStmt
     | continueStmt
+    | switchStatement
     ;
 
 // DECLARACION
 declaration : declarationStatement SEMI ;
-
 declarationStatement : DECL tipo VAR (ASIG (expr | arrayLiteral))? ;
 
 // TIPOS
@@ -49,6 +49,12 @@ forStatement : FOR PAI forInit? SEMI condition? SEMI forUpdate? PAD block ;
 
 forInit : declarationStatement | assignmentStatement ;
 forUpdate : assignmentStatement ;
+
+// SWITCH / CASE
+switchStatement : SWITCH PAI expr PAD LLA caseClause* defaultClause? LLC ;
+caseClause      : CASE literal COLON statement* ;
+defaultClause   : DEFAULT COLON statement* ;
+literal         : NUM | FLOAT | STRING ;
 
 // FUNCIONES
 functionDecl : tipo VAR PAI paramList? PAD block ;
@@ -126,53 +132,55 @@ DECL
     | 'const'
     ;
 
-INT : 'int' ;
-FLOAT_T : 'float' ;
-STRING_T : 'string' ;
-BOOL : 'bool' ;
-VOID : 'void' ;
+INT         : 'int' ;
+FLOAT_T     : 'float' ;
+STRING_T    : 'string' ;
+BOOL        : 'bool' ;
+VOID        : 'void' ;
 
-IF : 'if' ;
-ELSE : 'else' ;
-WHILE : 'while' ;
-FOR : 'for' ;
+IF      : 'if' ;
+ELSE    : 'else' ;
+WHILE   : 'while' ;
+FOR     : 'for' ;
 
-RETURN : 'return' ;
-PRINT : 'print' ;
-IMPORT : 'import' ;
+// IMPLEMENTACIÓN DE TOKENS
+SWITCH  : 'switch' ;
+CASE    : 'case' ;
+DEFAULT : 'default' ;
+COLON   : ':' ;
 
-BREAK : 'break' ;
-CONTINUE : 'continue' ;
+RETURN      : 'return' ;
+PRINT       : 'print' ;
+IMPORT      : 'import' ;
+BREAK       : 'break' ;
+CONTINUE    : 'continue' ;
 
-TRUE : 'true' ;
+TRUE  : 'true' ;
 FALSE : 'false' ;
 
 ASIG : '=' ;
-
-SUM : '+' ;
-RES : '-' ;
-MUL : '*' ;
-DIV : '/' ;
-MOD : '%' ;
+SUM  : '+' ;
+RES  : '-' ;
+MUL  : '*' ;
+DIV  : '/' ;
+MOD  : '%' ;
 
 AND : '&&' ;
 OR  : '||' ;
 NOT : '!' ;
 
-GT : '>' ;
-LT : '<' ;
+GT  : '>'  ;
+LT  : '<'  ;
 GTE : '>=' ;
 LTE : '<=' ;
-EQ : '==' ;
+EQ  : '==' ;
 NEQ : '!=' ;
 
-PAI : '(' ;
-PAD : ')' ;
-
-LLA : '{' ;
-LLC : '}' ;
-
-SEMI : ';' ;
+PAI   : '(' ;
+PAD   : ')' ;
+LLA   : '{' ;
+LLC   : '}' ;
+SEMI  : ';' ;
 COMMA : ',' ;
 
 // LITERALES

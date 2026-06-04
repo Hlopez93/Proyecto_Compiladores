@@ -1,35 +1,23 @@
 program {
-
-    // Variables y arreglos
-    var int[] nums = [3, 1, 4, 1, 5];
+    var int[] nums = [1, 3, 5, 7, 9];
     var int total = 0;
     var int i = 0;
 
-    // Ciclo con break y módulo
     while (i < 5) {
         var int r = nums[i] % 2;
-
         if (r == 0) {
             total = total + nums[i];
         }
-
         i = i + 1;
-
-        if (total > 10) {
-            break;
-        }
     }
 
-    // Función recursiva
     int fibonacci(int n) {
         if (n <= 1) { return n; }
         return fibonacci(n - 1) + fibonacci(n - 2);
     }
 
-    var string msg = "Fibonacci(15) = ";
-
-    print(msg);
-    print(fibonacci(15));
+    print("Fibonacci(20) = ");
+    print(fibonacci(20));
     print("Total pares: ");
     print(total);
 }
