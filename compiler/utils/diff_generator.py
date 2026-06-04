@@ -1,6 +1,5 @@
 import difflib
 
-
 class DiffGenerator:
 
     @staticmethod

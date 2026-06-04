@@ -16,6 +16,7 @@ class IRGenerator(gramatica_v4Visitor):
 
         self.loop_stack = []
 
+        # printf
         printf_type = ir.FunctionType(
             ir.IntType(32),
             [ir.IntType(8).as_pointer()],
@@ -23,7 +24,7 @@ class IRGenerator(gramatica_v4Visitor):
         )
         self.printf = ir.Function(self.module, printf_type, name="printf")
 
-    # ================= ROOT =================
+    # ROOT (main)
     def visitRoot(self, ctx):
 
         func_type = ir.FunctionType(ir.IntType(32), [])
@@ -37,7 +38,7 @@ class IRGenerator(gramatica_v4Visitor):
 
         self.builder.ret(ir.Constant(ir.IntType(32), 0))
 
-    # ================= TIPOS =================
+    # TIPOS
     def get_type(self, tipo):
         t = tipo.getText()
 
@@ -50,12 +51,13 @@ class IRGenerator(gramatica_v4Visitor):
         if t == "string":
             return ir.IntType(8).as_pointer()
 
+        # array
         if "[]" in t:
             return ir.IntType(32).as_pointer()
 
         return ir.VoidType()
 
-    # ================= DECLARACION =================
+    # DECLARACIÓN
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
@@ -67,6 +69,7 @@ class IRGenerator(gramatica_v4Visitor):
         ptr = self.builder.alloca(llvm_type, name=nombre)
         self.variables[nombre] = ptr
 
+        # ARRAY
         if ctx.arrayLiteral():
             values = [self.visit(e) for e in ctx.arrayLiteral().expr()]
             array_type = ir.ArrayType(ir.IntType(32), len(values))
@@ -74,10 +77,8 @@ class IRGenerator(gramatica_v4Visitor):
             array = self.builder.alloca(array_type)
 
             for i, val in enumerate(values):
-                ptr_elem = self.builder.gep(array, [
-                    ir.Constant(ir.IntType(32), 0),
-                    ir.Constant(ir.IntType(32), i)
-                ])
+                ptr_elem = self.builder.gep(array, [ir.Constant(ir.IntType(32), 0),
+                                                    ir.Constant(ir.IntType(32), i)])
                 self.builder.store(val, ptr_elem)
 
             ptr_cast = self.builder.bitcast(array, ir.IntType(32).as_pointer())
@@ -87,38 +88,59 @@ class IRGenerator(gramatica_v4Visitor):
             val = self.visit(ctx.expr())
             self.builder.store(val, ptr)
 
-    # ================= ASIGNACION =================
-    def visitAssignment(self, ctx):
-        self.visit(ctx.assignmentStatement())
-
+    # ASIGNACIÓN
     def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
         val = self.visit(ctx.expr())
         self.builder.store(val, self.variables[nombre])
 
-    # ================= EXPRESIONES =================
+    # EXPRESIONES
     def visitExpr(self, ctx):
-        # expr SUM term  |  expr RES term
-        if ctx.getChildCount() == 3:
-            left = self.visit(ctx.expr())
-            right = self.visit(ctx.term())
+
+        # números
+        if ctx.NUM():
+            return ir.Constant(ir.IntType(32), int(ctx.NUM().getText()))
+
+        if ctx.FLOAT():
+            return ir.Constant(ir.DoubleType(), float(ctx.FLOAT().getText()))
+
+        if ctx.TRUE():
+            return ir.Constant(ir.IntType(1), 1)
+
+        if ctx.FALSE():
+            return ir.Constant(ir.IntType(1), 0)
+
+        # string literal
+        if ctx.STRING():
+            return self.create_string(ctx.STRING().getText()[1:-1])
+
+        # variable
+        if ctx.VAR() and not ctx.getChildCount() > 1:
+            ptr = self.variables[ctx.VAR().getText()]
+            return self.builder.load(ptr)
+
+        # array access
+        if ctx.VAR() and ctx.expr():
+            arr_ptr = self.builder.load(self.variables[ctx.VAR().getText()])
+            index = self.visit(ctx.expr(0))
+
+            elem_ptr = self.builder.gep(arr_ptr, [index])
+            return self.builder.load(elem_ptr)
+
+        # function call
+        if ctx.functionCall():
+            return self.visit(ctx.functionCall())
+
+        # operaciones
+        if len(ctx.expr()) == 2:
+            left = self.visit(ctx.expr(0))
+            right = self.visit(ctx.expr(1))
             op = ctx.getChild(1).getText()
 
             if op == '+':
                 return self.builder.add(left, right)
             if op == '-':
                 return self.builder.sub(left, right)
-
-        # just a term
-        return self.visit(ctx.term())
-
-    def visitTerm(self, ctx):
-        # term MUL/DIV/MOD factor
-        if ctx.getChildCount() == 3:
-            left = self.visit(ctx.term())
-            right = self.visit(ctx.factor())
-            op = ctx.getChild(1).getText()
-
             if op == '*':
                 return self.builder.mul(left, right)
             if op == '/':
@@ -126,51 +148,9 @@ class IRGenerator(gramatica_v4Visitor):
             if op == '%':
                 return self.builder.srem(left, right)
 
-        # just a factor
-        return self.visit(ctx.factor())
+        return self.visit(ctx.expr(0))
 
-    def visitFactor(self, ctx):
-        # NUM
-        if ctx.NUM():
-            return ir.Constant(ir.IntType(32), int(ctx.NUM().getText()))
-
-        # FLOAT
-        if ctx.FLOAT():
-            return ir.Constant(ir.DoubleType(), float(ctx.FLOAT().getText()))
-
-        # STRING
-        if ctx.STRING():
-            return self.create_string(ctx.STRING().getText()[1:-1])
-
-        # BOOL
-        if ctx.TRUE():
-            return ir.Constant(ir.IntType(1), 1)
-        if ctx.FALSE():
-            return ir.Constant(ir.IntType(1), 0)
-
-        # Array access: VAR '[' expr ']'  — check BEFORE plain VAR
-        if ctx.getChildCount() == 4:
-            arr_ptr = self.builder.load(self.variables[ctx.VAR().getText()])
-            index = self.visit(ctx.expr())
-            elem_ptr = self.builder.gep(arr_ptr, [index])
-            return self.builder.load(elem_ptr)
-
-        # Function call — check BEFORE plain VAR
-        if ctx.functionCall():
-            return self.visit(ctx.functionCall())
-
-        # Plain variable
-        if ctx.VAR():
-            ptr = self.variables[ctx.VAR().getText()]
-            return self.builder.load(ptr)
-
-        # Parenthesized expression: '(' expr ')'
-        if ctx.getChildCount() == 3:
-            return self.visit(ctx.expr())
-
-        raise Exception(f"Factor IR no soportado: {ctx.getText()}")
-
-    # ================= CONDICIONES =================
+    # CONDICIONES
     def visitCondition(self, ctx):
 
         if ctx.AND():
@@ -186,17 +166,18 @@ class IRGenerator(gramatica_v4Visitor):
             left = self.visit(ctx.expr(0))
             right = self.visit(ctx.expr(1))
             op = ctx.relop().getText()
+
             return self.builder.icmp_signed(op, left, right)
 
         if ctx.TRUE():
             return ir.Constant(ir.IntType(1), 1)
+
         if ctx.FALSE():
             return ir.Constant(ir.IntType(1), 0)
 
-        # PAI condition PAD
         return self.visit(ctx.condition(0))
 
-    # ================= IF =================
+    # IF
     def visitIfStatement(self, ctx):
 
         cond = self.visit(ctx.condition())
@@ -223,7 +204,7 @@ class IRGenerator(gramatica_v4Visitor):
 
         self.builder.position_at_start(merge)
 
-    # ================= WHILE =================
+    # WHILE
     def visitWhileStatement(self, ctx):
 
         cond_block = self.func.append_basic_block("while_cond")
@@ -252,7 +233,7 @@ class IRGenerator(gramatica_v4Visitor):
 
         self.builder.position_at_start(end_block)
 
-    # ================= BREAK / CONTINUE =================
+    # BREAK / CONTINUE
     def visitBreakStmt(self, ctx):
         target = self.loop_stack[-1]["break"]
         self.builder.branch(target)
@@ -267,7 +248,7 @@ class IRGenerator(gramatica_v4Visitor):
         new_block = self.func.append_basic_block("after_continue")
         self.builder.position_at_start(new_block)
 
-    # ================= FUNCIONES =================
+    # FUNCIONES
     def visitFunctionDecl(self, ctx):
 
         nombre = ctx.VAR().getText()
@@ -330,7 +311,7 @@ class IRGenerator(gramatica_v4Visitor):
 
         return self.builder.call(func, args)
 
-    # ================= PRINT =================
+    # PRINT
     def visitPrintStmt(self, ctx):
 
         val = self.visit(ctx.expr())
@@ -348,11 +329,7 @@ class IRGenerator(gramatica_v4Visitor):
             fmt = self.create_string("%f\n")
             self.builder.call(self.printf, [fmt, val])
 
-        elif isinstance(val.type, ir.PointerType):
-            fmt = self.create_string("%s\n")
-            self.builder.call(self.printf, [fmt, val])
-
-    # ================= STRING =================
+    # STRING
     def create_string(self, text):
         text_bytes = bytearray(text.encode("utf8")) + b'\00'
         string_type = ir.ArrayType(ir.IntType(8), len(text_bytes))
@@ -362,74 +339,3 @@ class IRGenerator(gramatica_v4Visitor):
         global_str.initializer = ir.Constant(string_type, text_bytes)
 
         return self.builder.bitcast(global_str, ir.IntType(8).as_pointer())
-
-    # ================= SWITCH / CASE ★ IMPLEMENTACIÓN =================
-    def visitSwitchStatement(self, ctx):
-        ctrl_val = self.visit(ctx.expr())
-
-        # La instruccion switch de LLVM requiere un entero — si viene i1 (bool) lo extendemos
-        if isinstance(ctrl_val.type, ir.IntType) and ctrl_val.type.width == 1:
-            ctrl_val = self.builder.zext(ctrl_val, ir.IntType(32))
-
-        end_block = self.func.append_basic_block("switch_end")
-
-        # Si hay default, crea su bloque; si no, el default salta directo al end
-        if ctx.defaultClause():
-            default_block = self.func.append_basic_block("switch_default")
-        else:
-            default_block = end_block
-
-        # Instruccion switch nativa de LLVM
-        sw = self.builder.switch(ctrl_val, default_block)
-
-        # Crear un bloque por cada case y registrar su valor en la switch table
-        case_blocks = []
-        for case_clause in ctx.caseClause():
-            lit = case_clause.literal()
-            if lit.NUM():
-                case_val = ir.Constant(ir.IntType(32), int(lit.NUM().getText()))
-            elif lit.FLOAT():
-                # LLVM switch solo acepta enteros; convertimos el float a bits enteros
-                import struct
-                bits = struct.unpack('q', struct.pack('d', float(lit.FLOAT().getText())))[0]
-                case_val = ir.Constant(ir.IntType(64), bits)
-            else:
-                case_val = ir.Constant(ir.IntType(32), 0)
-
-            blk = self.func.append_basic_block(f"switch_case_{len(case_blocks)}")
-            sw.add_case(case_val, blk)
-            case_blocks.append(blk)
-
-        # Empujar end_block para que break dentro de un case sepa a donde saltar
-        self.loop_stack.append({"break": end_block, "continue": end_block})
-
-        # Generar cuerpo de cada case
-        for i, (case_clause, blk) in enumerate(zip(ctx.caseClause(), case_blocks)):
-            self.builder.position_at_start(blk)
-            for stmt in case_clause.statement():
-                self.visit(stmt)
-            # fall-through si no hubo break explicito
-            if not self.builder.block.is_terminated:
-                if i + 1 < len(case_blocks):
-                    self.builder.branch(case_blocks[i + 1])
-                elif ctx.defaultClause():
-                    self.builder.branch(default_block)
-                else:
-                    self.builder.branch(end_block)
-
-        # Generar cuerpo del default
-        if ctx.defaultClause():
-            self.builder.position_at_start(default_block)
-            for stmt in ctx.defaultClause().statement():
-                self.visit(stmt)
-            if not self.builder.block.is_terminated:
-                self.builder.branch(end_block)
-
-        self.loop_stack.pop()
-        self.builder.position_at_start(end_block)
-
-    def visitCaseClause(self, ctx):
-        pass  # visitado inline en visitSwitchStatement
-
-    def visitDefaultClause(self, ctx):
-        pass  # visitado inline en visitSwitchStatement
