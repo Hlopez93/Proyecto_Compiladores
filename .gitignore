@@ -1,6 +1,41 @@
+# Python
 venv/
+.venv/
+
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# ANTLR
 *.interp
 *.tokens
 antlr-*.jar
+
+# LLVM / Compilador
+*.ll
+*.o
+*.tac
+
+# Ejecutables generados
+*.exe
+programa_linux
+programa_linux*
+manual_program
+
+# VS Code
+.vscode/
+
+# Linux / WSL
+*.out
+
+# Logs
+*.log
+
+# Flask
+instance/
+.webassets-cache/
+
+# Sistema Operativo
+.DS_Store
+Thumbs.db

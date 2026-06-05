@@ -1,16 +1,15 @@
-from compiler.gramatica_v3Visitor import gramatica_v3Visitor
+from compiler.gramatica_v4Visitor import gramatica_v4Visitor
 
-
-class TACGenerator(gramatica_v3Visitor):
+class TACGenerator(gramatica_v4Visitor):
 
     def __init__(self):
         self.code = []
         self.temp_count = 0
         self.label_count = 0
-        self.break_stack = []
-        self.continue_stack = []
 
-    # ================= UTIL =================
+        self.loop_stack = []  # para break / continue
+
+    # UTILIDADES
     def new_temp(self):
         self.temp_count += 1
         return f"t{self.temp_count}"
@@ -19,214 +18,204 @@ class TACGenerator(gramatica_v3Visitor):
         self.label_count += 1
         return f"L{self.label_count}"
 
-    def emit(self, instr):
-        self.code.append(instr)
+    def emit(self, line):
+        self.code.append(line)
 
-    # ================= ROOT =================
+    # ROOT
     def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
-    def visitBlock(self, ctx):
-        for stmt in ctx.statement():
-            self.visit(stmt)
-
-    # ================= WRAPPERS =================
+    # DECLARACIÓN
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
-    def visitAssignment(self, ctx):
-        self.visit(ctx.assignmentStatement())
-
-    # ================= DECLARACION =================
     def visitDeclarationStatement(self, ctx):
         nombre = ctx.VAR().getText()
 
         if ctx.arrayLiteral():
             valores = [self.visit(e) for e in ctx.arrayLiteral().expr()]
-            self.emit(f"{nombre} = [{', '.join(map(str, valores))}]")
+            self.emit(f"{nombre} = [{', '.join(valores)}]")
 
         elif ctx.expr():
             val = self.visit(ctx.expr())
             self.emit(f"{nombre} = {val}")
 
-    # ================= ASIGNACION =================
+    # ASIGNACIÓN
+    def visitAssignment(self, ctx):
+        self.visit(ctx.assignmentStatement())
+
     def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
         val = self.visit(ctx.expr())
         self.emit(f"{nombre} = {val}")
 
-    # ================= EXPRESIONES =================
+    # EXPRESIONES
     def visitExpr(self, ctx):
 
-        # expr: expr + term | expr - term
-        if ctx.getChildCount() == 3 and ctx.getChild(1).getText() in ['+', '-']:
-            left = self.visit(ctx.getChild(0))
-            right = self.visit(ctx.getChild(2))
-            op = ctx.getChild(1).getText()
-
-            temp = self.new_temp()
-            self.emit(f"{temp} = {left} {op} {right}")
-            return temp
-
-        return self.visit(ctx.term())
-
-    def visitTerm(self, ctx):
-
-        if ctx.getChildCount() == 3:
-            left = self.visit(ctx.getChild(0))
-            right = self.visit(ctx.getChild(2))
-            op = ctx.getChild(1).getText()
-
-            temp = self.new_temp()
-            self.emit(f"{temp} = {left} {op} {right}")
-            return temp
-
-        return self.visit(ctx.factor())
-
-    def visitFactor(self, ctx):
-
-        # NUM
+        # LITERALES
         if ctx.NUM():
             return ctx.NUM().getText()
 
-        # FLOAT
         if ctx.FLOAT():
             return ctx.FLOAT().getText()
 
-        # STRING
         if ctx.STRING():
             return ctx.STRING().getText()
 
-        # BOOL
         if ctx.TRUE():
-            return "1"
+            return "true"
 
         if ctx.FALSE():
-            return "0"
+            return "false"
 
-        # array[index]: VAR '[' expr ']' — check BEFORE plain VAR
-        if ctx.getChildCount() == 4:
+        # ARRAY ACCESS
+        if ctx.getChildCount() == 4 and ctx.getChild(1).getText() == '[':
             nombre = ctx.VAR().getText()
-            index = self.visit(ctx.expr())
+            index = self.visit(ctx.expr(0))
 
             temp = self.new_temp()
             self.emit(f"{temp} = {nombre}[{index}]")
             return temp
 
-        # FUNCTION CALL — check BEFORE plain VAR
-        if ctx.functionCall():
-            return self.visit(ctx.functionCall())
-
         # VARIABLE
         if ctx.VAR():
             return ctx.VAR().getText()
 
-        # (expr)
-        if ctx.getChildCount() == 3:
-            return self.visit(ctx.expr())
+        # FUNCTION CALL
+        if ctx.functionCall():
+            return self.visit(ctx.functionCall())
 
-        return "0"
+        # OPERACIONES
+        if len(ctx.expr()) == 2:
+            left = self.visit(ctx.expr(0))
+            right = self.visit(ctx.expr(1))
+            op = ctx.getChild(1).getText()
 
-    # ================= CONDICIONES =================
+            temp = self.new_temp()
+            self.emit(f"{temp} = {left} {op} {right}")
+            return temp
+
+        # PARENTESIS
+        if ctx.expr():
+            return self.visit(ctx.expr(0))
+
+    # CONDICIONES
     def visitCondition(self, ctx):
 
         if ctx.relop():
-            a = self.visit(ctx.expr(0))
-            b = self.visit(ctx.expr(1))
+            left = self.visit(ctx.expr(0))
+            right = self.visit(ctx.expr(1))
             op = ctx.relop().getText()
 
             temp = self.new_temp()
-            self.emit(f"{temp} = {a} {op} {b}")
+            self.emit(f"{temp} = {left} {op} {right}")
             return temp
 
         if ctx.AND():
-            a = self.visit(ctx.condition(0))
-            b = self.visit(ctx.condition(1))
-            t = self.new_temp()
-            self.emit(f"{t} = {a} && {b}")
-            return t
+            left = self.visit(ctx.condition(0))
+            right = self.visit(ctx.condition(1))
+            temp = self.new_temp()
+            self.emit(f"{temp} = {left} && {right}")
+            return temp
 
         if ctx.OR():
-            a = self.visit(ctx.condition(0))
-            b = self.visit(ctx.condition(1))
-            t = self.new_temp()
-            self.emit(f"{t} = {a} || {b}")
-            return t
+            left = self.visit(ctx.condition(0))
+            right = self.visit(ctx.condition(1))
+            temp = self.new_temp()
+            self.emit(f"{temp} = {left} || {right}")
+            return temp
 
         if ctx.NOT():
             val = self.visit(ctx.condition(0))
-            t = self.new_temp()
-            self.emit(f"{t} = !{val}")
-            return t
+            temp = self.new_temp()
+            self.emit(f"{temp} = !{val}")
+            return temp
 
         if ctx.TRUE():
-            return "1"
+            return "true"
 
         if ctx.FALSE():
-            return "0"
+            return "false"
 
-        if ctx.condition():
-            return self.visit(ctx.condition(0))
-
-        return "0"
-
-    # ================= IF =================
+    # IF
     def visitIfStatement(self, ctx):
+
         cond = self.visit(ctx.condition())
 
-        Ltrue = self.new_label()
-        Lend = self.new_label()
-
-        self.emit(f"if {cond} goto {Ltrue}")
+        label_true = self.new_label()
+        label_end = self.new_label()
 
         if ctx.ELSE():
+            label_false = self.new_label()
+
+            self.emit(f"if {cond} goto {label_true}")
+            self.emit(f"goto {label_false}")
+
+            # THEN
+            self.emit(f"{label_true}:")
+            self.visit(ctx.block(0))
+            self.emit(f"goto {label_end}")
+
+            # ELSE
+            self.emit(f"{label_false}:")
             self.visit(ctx.block(1))
 
-        self.emit(f"goto {Lend}")
-        self.emit(f"{Ltrue}:")
-        self.visit(ctx.block(0))
-        self.emit(f"{Lend}:")
-
-    # ================= WHILE =================
-    def visitWhileStatement(self, ctx):
-        Lstart = self.new_label()
-        Lend = self.new_label()
-
-        self.break_stack.append(Lend)
-        self.continue_stack.append(Lstart)
-
-        self.emit(f"{Lstart}:")
-        cond = self.visit(ctx.condition())
-        self.emit(f"if not {cond} goto {Lend}")
-
-        self.visit(ctx.block())
-
-        self.emit(f"goto {Lstart}")
-        self.emit(f"{Lend}:")
-
-        self.break_stack.pop()
-        self.continue_stack.pop()
-
-    # ================= PRINT =================
-    def visitPrintStmt(self, ctx):
-        val = self.visit(ctx.expr())
-        self.emit(f"print {val}")
-
-    # ================= RETURN =================
-    def visitReturnStmt(self, ctx):
-        if ctx.expr():
-            val = self.visit(ctx.expr())
-            self.emit(f"return {val}")
         else:
-            self.emit("return")
+            self.emit(f"if {cond} goto {label_true}")
+            self.emit(f"goto {label_end}")
 
-    # ================= FUNCIONES =================
+            self.emit(f"{label_true}:")
+            self.visit(ctx.block(0))
+
+        self.emit(f"{label_end}:")
+
+    # WHILE
+    def visitWhileStatement(self, ctx):
+
+        label_cond = self.new_label()
+        label_body = self.new_label()
+        label_end = self.new_label()
+
+        self.emit(f"{label_cond}:")
+
+        cond = self.visit(ctx.condition())
+
+        self.emit(f"if {cond} goto {label_body}")
+        self.emit(f"goto {label_end}")
+
+        # LOOP STACK
+        self.loop_stack.append({
+            "break": label_end,
+            "continue": label_cond
+        })
+
+        # BODY
+        self.emit(f"{label_body}:")
+        self.visit(ctx.block())
+        self.emit(f"goto {label_cond}")
+
+        self.loop_stack.pop()
+
+        self.emit(f"{label_end}:")
+
+    # BREAK / CONTINUE
+    def visitBreakStmt(self, ctx):
+        target = self.loop_stack[-1]["break"]
+        self.emit(f"goto {target}")
+
+    def visitContinueStmt(self, ctx):
+        target = self.loop_stack[-1]["continue"]
+        self.emit(f"goto {target}")
+
+    # FUNCIONES
     def visitFunctionDecl(self, ctx):
+
         nombre = ctx.VAR().getText()
 
         self.emit(f"begin_func {nombre}")
 
+        # PARAMS
         if ctx.paramList():
             for p in ctx.paramList().param():
                 self.emit(f"param {p.VAR().getText()}")
@@ -236,6 +225,7 @@ class TACGenerator(gramatica_v3Visitor):
         self.emit(f"end_func {nombre}")
 
     def visitFunctionCall(self, ctx):
+
         nombre = ctx.VAR().getText()
 
         args = []
@@ -243,8 +233,28 @@ class TACGenerator(gramatica_v3Visitor):
             args = [self.visit(e) for e in ctx.argList().expr()]
 
         for arg in args:
-            self.emit(f"arg {arg}")
+            self.emit(f"param {arg}")
 
         temp = self.new_temp()
         self.emit(f"{temp} = call {nombre}, {len(args)}")
+
         return temp
+
+    # RETURN
+    def visitReturnStmt(self, ctx):
+
+        if ctx.expr():
+            val = self.visit(ctx.expr())
+            self.emit(f"return {val}")
+        else:
+            self.emit("return")
+
+    # PRINT
+    def visitPrintStmt(self, ctx):
+
+        val = self.visit(ctx.expr())
+        self.emit(f"print {val}")
+
+    # IMPORT (fase futura)
+    def visitImportStmt(self, ctx):
+        return
