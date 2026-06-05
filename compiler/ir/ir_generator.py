@@ -1,7 +1,8 @@
+from flask import ctx
 from llvmlite import ir
-from compiler.gramatica_v3Visitor import gramatica_v3Visitor
+from compiler.gramatica_v4Visitor import gramatica_v4Visitor
 
-class IRGenerator(gramatica_v3Visitor):
+class IRGenerator(gramatica_v4Visitor):
 
     def __init__(self):
         self.module = ir.Module(name="module")
@@ -81,8 +82,8 @@ class IRGenerator(gramatica_v3Visitor):
             ptr_cast = self.builder.bitcast(array, ir.IntType(32).as_pointer())
             self.builder.store(ptr_cast, ptr)
 
-        elif ctx.expr():
-            val = self.visit(ctx.expr())
+        elif ctx.valueExpr():
+            val = self.visit(ctx.valueExpr())
             self.builder.store(val, ptr)
 
     # ================= ASIGNACION =================
@@ -91,9 +92,38 @@ class IRGenerator(gramatica_v3Visitor):
 
     def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
-        val = self.visit(ctx.expr())
+        val = self.visit(ctx.valueExpr())
         self.builder.store(val, self.variables[nombre])
 
+
+
+
+        # ================= VALUE EXPR =================
+    def visitValueExpr(self, ctx):
+
+        if ctx.ternaryExpr():
+            return self.visit(ctx.ternaryExpr())
+
+        return self.visit(ctx.expr())
+
+
+
+    # ================= TERNARY =================
+    def visitTernaryExpr(self, ctx):
+        print("ENTRO A TERNARY IR")
+
+        cond = self.visit(ctx.condition())
+
+        true_val = self.visit(ctx.expr(0))
+        false_val = self.visit(ctx.expr(1))
+
+        return self.builder.select(
+            cond,
+            true_val,
+            false_val
+    )     
+
+        
     # ================= EXPRESIONES =================
     def visitExpr(self, ctx):
         # expr SUM term  |  expr RES term

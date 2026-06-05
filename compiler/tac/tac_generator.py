@@ -1,7 +1,9 @@
-from compiler.gramatica_v3Visitor import gramatica_v3Visitor
+from flask import ctx
+
+from compiler.gramatica_v4Visitor import gramatica_v4Visitor
 
 
-class TACGenerator(gramatica_v3Visitor):
+class TACGenerator(gramatica_v4Visitor):
 
     def __init__(self):
         self.code = []
@@ -46,14 +48,14 @@ class TACGenerator(gramatica_v3Visitor):
             valores = [self.visit(e) for e in ctx.arrayLiteral().expr()]
             self.emit(f"{nombre} = [{', '.join(map(str, valores))}]")
 
-        elif ctx.expr():
-            val = self.visit(ctx.expr())
+        elif ctx.valueExpr():
+            val = self.visit(ctx.valueExpr())
             self.emit(f"{nombre} = {val}")
 
     # ================= ASIGNACION =================
     def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
-        val = self.visit(ctx.expr())
+        val = self.visit(ctx.valueExpr())
         self.emit(f"{nombre} = {val}")
 
     # ================= EXPRESIONES =================
@@ -170,6 +172,42 @@ class TACGenerator(gramatica_v3Visitor):
             return self.visit(ctx.condition(0))
 
         return "0"
+    
+    # ================= VALUE EXPR =================
+    def visitValueExpr(self, ctx):
+
+        if ctx.ternaryExpr():
+            return self.visit(ctx.ternaryExpr())
+
+        return self.visit(ctx.expr())
+    
+
+    # ================= TERNARY =================
+    def visitTernaryExpr(self, ctx):
+
+        cond = self.visit(ctx.condition())
+
+        Ltrue = self.new_label()
+        Lend = self.new_label()
+
+        temp = self.new_temp()
+
+        self.emit(f"if {cond} goto {Ltrue}")
+
+        false_val = self.visit(ctx.expr(1))
+        self.emit(f"{temp} = {false_val}")
+        self.emit(f"goto {Lend}")
+
+        self.emit(f"{Ltrue}:")
+
+        true_val = self.visit(ctx.expr(0))
+        self.emit(f"{temp} = {true_val}")
+
+        self.emit(f"{Lend}:")
+
+        return temp
+
+
 
     # ================= IF =================
     def visitIfStatement(self, ctx):

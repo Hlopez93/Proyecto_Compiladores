@@ -1,4 +1,6 @@
-from compiler.gramatica_v3Visitor import gramatica_v3Visitor
+from flask import ctx
+
+from compiler.gramatica_v4Visitor import gramatica_v4Visitor
 from compiler.semantic.tablaSimbolos import TablaSimbolos
 
 
@@ -15,7 +17,7 @@ class ContinueException(Exception):
     pass
 
 
-class InterpreterVisitor(gramatica_v3Visitor):
+class InterpreterVisitor(gramatica_v4Visitor):
 
     def __init__(self):
         self.tabla = TablaSimbolos()
@@ -47,8 +49,8 @@ class InterpreterVisitor(gramatica_v3Visitor):
         valor = None
         if ctx.arrayLiteral():
             valor = self.visit(ctx.arrayLiteral())
-        elif ctx.expr():
-            valor = self.visit(ctx.expr())
+        elif ctx.valueExpr():
+            valor = self.visit(ctx.valueExpr())
 
         self.tabla.declarar(nombre, tipo, valor, mutable=(decl != "const"))
 
@@ -209,6 +211,23 @@ class InterpreterVisitor(gramatica_v3Visitor):
                 raise Exception(f"Operador desconocido en expr: {op}")
         # just a term
         return self.visit(ctx.term())
+    
+    # ================= VALUE EXPR =================
+    def visitValueExpr(self, ctx):
+
+        if ctx.ternaryExpr():
+            return self.visit(ctx.ternaryExpr())
+
+        return self.visit(ctx.expr())
+
+     # ================= TERNARY =================
+    def visitTernaryExpr(self, ctx):
+   
+        condicion = self.visit(ctx.condition())
+        if condicion:
+            return self.visit(ctx.expr(0))
+        else:
+            return self.visit(ctx.expr(1))
 
     def visitTerm(self, ctx):
         # term MUL factor  |  term DIV factor  |  term MOD factor

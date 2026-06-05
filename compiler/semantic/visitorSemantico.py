@@ -1,7 +1,7 @@
-from compiler.gramatica_v3Visitor import gramatica_v3Visitor
+from compiler.gramatica_v4Visitor import gramatica_v4Visitor
 from compiler.semantic.tablaSimbolos import TablaSimbolos
 
-class SemanticVisitor(gramatica_v3Visitor):
+class SemanticVisitor(gramatica_v4Visitor):
 
     def __init__(self):
         self.tabla = TablaSimbolos()
@@ -33,8 +33,8 @@ class SemanticVisitor(gramatica_v3Visitor):
 
         if ctx.arrayLiteral():
             valor_tipo = self.visit(ctx.arrayLiteral())
-        elif ctx.expr():
-            valor_tipo = self.visit(ctx.expr())
+        elif ctx.valueExpr():
+            valor_tipo = self.visit(ctx.valueExpr())
 
         if valor_tipo:
             if valor_tipo != tipo:
@@ -62,7 +62,7 @@ class SemanticVisitor(gramatica_v3Visitor):
         if not var.get("mutable", True):
             raise Exception(f"Error: '{nombre}' es const")
 
-        tipo_expr = self.visit(ctx.expr())
+        tipo_expr = self.visit(ctx.valueExpr())
 
         if tipo_expr != var["tipo"]:
             raise Exception("Error semántico: tipos incompatibles en asignación")
