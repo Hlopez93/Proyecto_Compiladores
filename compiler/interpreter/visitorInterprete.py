@@ -1,63 +1,62 @@
-from flask import ctx
-
 from compiler.gramatica_v4Visitor import gramatica_v4Visitor
 from compiler.semantic.tablaSimbolos import TablaSimbolos
 
-
+# EXCEPCIONES DE CONTROL
 class ReturnValue(Exception):
     def __init__(self, value):
         self.value = value
 
-
 class BreakException(Exception):
     pass
 
-
 class ContinueException(Exception):
     pass
-
 
 class InterpreterVisitor(gramatica_v4Visitor):
 
     def __init__(self):
         self.tabla = TablaSimbolos()
 
-    # ================= ROOT =================
+    # ROOT
     def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
-    # ================= BLOCK =================
+    # BLOCK
     def visitBlock(self, ctx):
         self.tabla.push_scope()
-        try:
-            for stmt in ctx.statement():
-                self.visit(stmt)
-        finally:
-            # SIEMPRE liberar el scope, incluso si ReturnValue/BreakException propagan
-            self.tabla.pop_scope()
+        for stmt in ctx.statement():
+            self.visit(stmt)
+        self.tabla.pop_scope()
 
-    # ================= DECLARACION =================
+    # DECLARACIÓN
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
     def visitDeclarationStatement(self, ctx):
         nombre = ctx.VAR().getText()
         tipo = ctx.tipo().getText()
-        decl = ctx.DECL().getText()
+        decl = ctx.DECL().getText()  # var / let / const
 
         valor = None
+
         if ctx.arrayLiteral():
             valor = self.visit(ctx.arrayLiteral())
         elif ctx.valueExpr():
             valor = self.visit(ctx.valueExpr())
 
-        self.tabla.declarar(nombre, tipo, valor, mutable=(decl != "const"))
+        self.tabla.declarar(
+            nombre,
+            tipo,
+            valor,
+            mutable=(decl != "const")
+        )
 
+    # ARRAY
     def visitArrayLiteral(self, ctx):
         return [self.visit(e) for e in ctx.expr()]
 
-    # ================= ASIGNACION =================
+    # ASIGNACIÓN
     def visitAssignment(self, ctx):
         self.visit(ctx.assignmentStatement())
 
@@ -68,21 +67,21 @@ class InterpreterVisitor(gramatica_v4Visitor):
         var = self.tabla.obtener(nombre)
 
         if not var.get("mutable", True):
-            raise Exception(f"Error: '{nombre}' es const")
+            raise Exception(f"Error: '{nombre}' es const y no puede modificarse")
 
         self.tabla.asignar(nombre, valor)
 
-    # ================= FUNCIONES =================
+    # FUNCIONES
     def visitFunctionDecl(self, ctx):
         nombre = ctx.VAR().getText()
         tipo = ctx.tipo().getText()
 
-        params = []
+        parametros = []
         if ctx.paramList():
             for p in ctx.paramList().param():
-                params.append((p.VAR().getText(), p.tipo().getText()))
+                parametros.append((p.VAR().getText(), p.tipo().getText()))
 
-        self.tabla.declarar_funcion(nombre, tipo, params, ctx)
+        self.tabla.declarar_funcion(nombre, tipo, parametros, ctx)
 
     def visitFunctionCall(self, ctx):
         func = self.tabla.obtener_funcion(ctx.VAR().getText())
@@ -92,27 +91,24 @@ class InterpreterVisitor(gramatica_v4Visitor):
             args = [self.visit(e) for e in ctx.argList().expr()]
 
         self.tabla.push_scope()
-        result = None
+
+        for i, (n, t) in enumerate(func["parametros"]):
+            self.tabla.declarar(n, t, args[i])
 
         try:
-            for i, (n, t) in enumerate(func["parametros"]):
-                self.tabla.declarar(n, t, args[i])
-
-            try:
-                for stmt in func["ctx"].block().statement():
-                    self.visit(stmt)
-            except ReturnValue as r:
-                result = r.value
-        finally:
+            self.visit(func["ctx"].block())
+        except ReturnValue as r:
             self.tabla.pop_scope()
+            return r.value
 
-        return result
+        self.tabla.pop_scope()
+        return None
 
     def visitReturnStmt(self, ctx):
         val = self.visit(ctx.expr()) if ctx.expr() else None
         raise ReturnValue(val)
 
-    # ================= CONTROL =================
+    # CONTROL DE FLUJO
     def visitIfStatement(self, ctx):
         if self.visit(ctx.condition()):
             self.visit(ctx.block(0))
@@ -131,28 +127,29 @@ class InterpreterVisitor(gramatica_v4Visitor):
     def visitForStatement(self, ctx):
         self.tabla.push_scope()
 
-        try:
-            if ctx.forInit():
-                if ctx.forInit().declarationStatement():
-                    self.visit(ctx.forInit().declarationStatement())
-                else:
-                    self.visit(ctx.forInit().assignmentStatement())
+        if ctx.forInit():
+            if ctx.forInit().declarationStatement():
+                self.visit(ctx.forInit().declarationStatement())
+            else:
+                self.visit(ctx.forInit().assignmentStatement())
 
-            while True:
-                if ctx.condition():
-                    if not self.visit(ctx.condition()):
-                        break
-                try:
-                    self.visit(ctx.block())
-                except ContinueException:
-                    pass
-                except BreakException:
+        while True:
+            if ctx.condition():
+                if not self.visit(ctx.condition()):
                     break
 
-                if ctx.forUpdate():
-                    self.visit(ctx.forUpdate().assignmentStatement())
-        finally:
-            self.tabla.pop_scope()
+            try:
+                for stmt in ctx.block().statement():
+                    self.visit(stmt)
+            except ContinueException:
+                pass
+            except BreakException:
+                break
+
+            if ctx.forUpdate():
+                self.visit(ctx.forUpdate().assignmentStatement())
+
+        self.tabla.pop_scope()
 
     def visitBreakStmt(self, ctx):
         raise BreakException()
@@ -160,7 +157,58 @@ class InterpreterVisitor(gramatica_v4Visitor):
     def visitContinueStmt(self, ctx):
         raise ContinueException()
 
-    # ================= CONDICIONES =================
+    # SWITCH
+    def visitSwitchStatement(self, ctx):
+
+        valor_switch = self.visit(ctx.expr())
+
+        ejecutado = False
+
+        for case_ctx in ctx.caseClause():
+
+            valor_case = self.visit(case_ctx.literal())
+
+            if valor_switch == valor_case:
+
+                ejecutado = True
+
+                try:
+
+                    for stmt in case_ctx.statement():
+                        self.visit(stmt)
+
+                except BreakException:
+                    return
+
+                break
+
+        if not ejecutado and ctx.defaultClause():
+
+            try:
+
+                for stmt in ctx.defaultClause().statement():
+                    self.visit(stmt)
+
+            except BreakException:
+                return
+            
+    def visitLiteral(self, ctx):
+
+        if ctx.NUM():
+            return int(ctx.NUM().getText())
+
+        if ctx.FLOAT():
+            return float(ctx.FLOAT().getText())
+
+        if ctx.STRING():
+            return ctx.STRING().getText()[1:-1]
+
+    # IMPORT (no-op)
+    def visitImportStmt(self, ctx):
+        # No hace nada por ahora
+        return
+
+    # CONDICIONES
     def visitCondition(self, ctx):
 
         if ctx.AND():
@@ -192,102 +240,64 @@ class InterpreterVisitor(gramatica_v4Visitor):
         if ctx.FALSE():
             return False
 
-        # PAI condition PAD
         if ctx.condition():
             return self.visit(ctx.condition(0))
 
-    # ================= EXPRESIONES =================
+    # EXPRESIONES
     def visitExpr(self, ctx):
-        # expr SUM term  |  expr RES term
-        if ctx.getChildCount() == 3:
-            left = self.visit(ctx.expr())
-            right = self.visit(ctx.term())
-            op = ctx.getChild(1).getText()
-            if op == '+':
-                return left + right
-            elif op == '-':
-                return left - right
-            else:
-                raise Exception(f"Operador desconocido en expr: {op}")
-        # just a term
-        return self.visit(ctx.term())
-    
-    # ================= VALUE EXPR =================
-    def visitValueExpr(self, ctx):
 
-        if ctx.ternaryExpr():
-            return self.visit(ctx.ternaryExpr())
-
-        return self.visit(ctx.expr())
-
-     # ================= TERNARY =================
-    def visitTernaryExpr(self, ctx):
-   
-        condicion = self.visit(ctx.condition())
-        if condicion:
-            return self.visit(ctx.expr(0))
-        else:
-            return self.visit(ctx.expr(1))
-
-    def visitTerm(self, ctx):
-        # term MUL factor  |  term DIV factor  |  term MOD factor
-        if ctx.getChildCount() == 3:
-            left = self.visit(ctx.term())
-            right = self.visit(ctx.factor())
-            op = ctx.getChild(1).getText()
-            if op == '*':
-                return left * right
-            elif op == '/':
-                if isinstance(left, int) and isinstance(right, int):
-                    return left // right
-                return left / right
-            elif op == '%':
-                return left % right
-            else:
-                raise Exception(f"Operador desconocido en term: {op}")
-        # just a factor
-        return self.visit(ctx.factor())
-
-    def visitFactor(self, ctx):
-        # NUM
+        # LITERALES
         if ctx.NUM():
             return int(ctx.NUM().getText())
 
-        # FLOAT
         if ctx.FLOAT():
             return float(ctx.FLOAT().getText())
 
-        # STRING
         if ctx.STRING():
             return ctx.STRING().getText()[1:-1]
 
-        # TRUE / FALSE
         if ctx.TRUE():
             return True
+
         if ctx.FALSE():
             return False
 
-        # Array access: VAR '[' expr ']'  (4 children) - check BEFORE plain VAR
-        if ctx.getChildCount() == 4:
+        # ARRAY ACCESS
+        if ctx.getChildCount() == 4 and ctx.getChild(1).getText() == '[':
             nombre = ctx.VAR().getText()
             arr = self.tabla.obtener(nombre)["valor"]
-            index = self.visit(ctx.expr())
+            index = self.visit(ctx.expr(0))
+
+            if not isinstance(arr, list):
+                raise Exception("Error: variable no es un array")
+
             return arr[index]
 
-        # Function call - check BEFORE plain VAR
-        if ctx.functionCall():
-            return self.visit(ctx.functionCall())
-
-        # Plain variable
+        # VARIABLE
         if ctx.VAR():
             return self.tabla.obtener(ctx.VAR().getText())["valor"]
 
-        # Parenthesized expression: '(' expr ')'
-        if ctx.getChildCount() == 3:
-            return self.visit(ctx.expr())
+        # FUNCTION CALL
+        if ctx.functionCall():
+            return self.visit(ctx.functionCall())
 
-        raise Exception(f"Factor no soportado: {ctx.getText()}")
+        # OPERACIONES
+        if len(ctx.expr()) == 2:
+            a = self.visit(ctx.expr(0))
+            b = self.visit(ctx.expr(1))
+            op = ctx.getChild(1).getText()
 
-    # ================= PRINT =================
+            if op == '+': return a + b
+            if op == '-': return a - b
+            if op == '*': return a * b
+            if op == '/': return a // b
+            if op == '%': return a % b
+
+        # PARENTESIS
+        if ctx.expr():
+            return self.visit(ctx.expr(0))
+
+    # PRINT
     def visitPrintStmt(self, ctx):
-        print(self.visit(ctx.expr()))
+        valor = self.visit(ctx.expr())
+        print(valor)

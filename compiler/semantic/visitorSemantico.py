@@ -6,43 +6,50 @@ class SemanticVisitor(gramatica_v4Visitor):
     def __init__(self):
         self.tabla = TablaSimbolos()
         self.current_function = None
-        self.in_loop = 0
+        self.in_loop = 0  # control para break/continue
+        self.in_switch = 0
 
-    # ================= ROOT =================
+    # ROOT
     def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
-    # ================= BLOCK =================
+    # BLOCK
     def visitBlock(self, ctx):
         self.tabla.push_scope()
         for stmt in ctx.statement():
             self.visit(stmt)
         self.tabla.pop_scope()
 
-    # ================= DECLARACIÓN =================
+    # DECLARACIÓN
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
     def visitDeclarationStatement(self, ctx):
         nombre = ctx.VAR().getText()
         tipo = ctx.tipo().getText()
-        decl = ctx.DECL().getText()
+        decl = ctx.DECL().getText()  # var | let | const
 
         valor_tipo = None
 
         if ctx.arrayLiteral():
             valor_tipo = self.visit(ctx.arrayLiteral())
-        elif ctx.valueExpr():
-            valor_tipo = self.visit(ctx.valueExpr())
 
+        elif ctx.expr():
+            valor_tipo = self.visit(ctx.expr())
+
+        # Validación de tipos
         if valor_tipo:
             if valor_tipo != tipo:
                 raise Exception(f"Error semántico: tipos incompatibles en declaración '{nombre}'")
 
-        self.tabla.declarar(nombre, tipo, mutable=(decl != "const"))
+        self.tabla.declarar(
+            nombre,
+            tipo,
+            mutable=(decl != "const")
+        )
 
-    # ================= ARRAY =================
+    # ARRAY
     def visitArrayLiteral(self, ctx):
         tipos = [self.visit(e) for e in ctx.expr()]
 
@@ -51,7 +58,7 @@ class SemanticVisitor(gramatica_v4Visitor):
 
         return tipos[0] + "[]"
 
-    # ================= ASIGNACIÓN =================
+    # ASIGNACIÓN
     def visitAssignment(self, ctx):
         self.visit(ctx.assignmentStatement())
 
@@ -60,14 +67,14 @@ class SemanticVisitor(gramatica_v4Visitor):
         var = self.tabla.obtener(nombre)
 
         if not var.get("mutable", True):
-            raise Exception(f"Error: '{nombre}' es const")
+            raise Exception(f"Error: '{nombre}' es const y no puede modificarse")
 
         tipo_expr = self.visit(ctx.valueExpr())
 
         if tipo_expr != var["tipo"]:
             raise Exception("Error semántico: tipos incompatibles en asignación")
 
-    # ================= FUNCIONES =================
+    # FUNCIONES
     def visitFunctionDecl(self, ctx):
         nombre = ctx.VAR().getText()
         tipo_retorno = ctx.tipo().getText()
@@ -94,15 +101,15 @@ class SemanticVisitor(gramatica_v4Visitor):
 
     def visitReturnStmt(self, ctx):
         if self.current_function is None:
-            raise Exception("Error: return fuera de función")
+            raise Exception("Error semántico: return fuera de función")
 
         if ctx.expr():
             tipo_expr = self.visit(ctx.expr())
             if tipo_expr != self.current_function:
-                raise Exception("Error: tipo de retorno incorrecto")
+                raise Exception("Error semántico: tipo de retorno incorrecto")
         else:
             if self.current_function != "void":
-                raise Exception("Error: return vacío en función no void")
+                raise Exception("Error semántico: return vacío en función no void")
 
     def visitFunctionCall(self, ctx):
         nombre = ctx.VAR().getText()
@@ -121,13 +128,12 @@ class SemanticVisitor(gramatica_v4Visitor):
 
         return func["retorno"]
 
-    # ================= CONTROL =================
+    # CONTROL DE FLUJO
     def visitIfStatement(self, ctx):
         if self.visit(ctx.condition()) != "bool":
             raise Exception("Error: condición de if debe ser bool")
 
         self.visit(ctx.block(0))
-
         if ctx.ELSE():
             self.visit(ctx.block(1))
 
@@ -163,17 +169,62 @@ class SemanticVisitor(gramatica_v4Visitor):
             self.visit(ctx.forUpdate().assignmentStatement())
 
         self.in_loop -= 1
+
         self.tabla.pop_scope()
 
     def visitBreakStmt(self, ctx):
-        if self.in_loop == 0:
-            raise Exception("Error: break fuera de ciclo")
+
+        if self.in_loop == 0 and self.in_switch == 0:
+            raise Exception(
+                "Error: break fuera de ciclo o switch"
+            )
 
     def visitContinueStmt(self, ctx):
         if self.in_loop == 0:
             raise Exception("Error: continue fuera de ciclo")
 
-    # ================= CONDICIONES =================
+    def visitSwitchStatement(self, ctx):
+
+        tipo_switch = self.visit(ctx.expr())
+
+        self.in_switch += 1
+
+        for case_ctx in ctx.caseClause():
+
+            tipo_case = self.visit(case_ctx.literal())
+
+            if tipo_case != tipo_switch:
+                raise Exception(
+                    "Error semántico: tipo de case incompatible con switch"
+                )
+
+            for stmt in case_ctx.statement():
+                self.visit(stmt)
+
+        if ctx.defaultClause():
+
+            for stmt in ctx.defaultClause().statement():
+                self.visit(stmt)
+
+        self.in_switch -= 1
+
+    # IMPORT
+    def visitImportStmt(self, ctx):
+        # No se valida aún (fase futura)
+        return
+    
+    def visitLiteral(self, ctx):
+
+        if ctx.NUM():
+            return "int"
+
+        if ctx.FLOAT():
+            return "float"
+
+        if ctx.STRING():
+            return "string"
+
+    # CONDICIONES
     def visitCondition(self, ctx):
 
         if ctx.AND() or ctx.OR():
@@ -197,40 +248,8 @@ class SemanticVisitor(gramatica_v4Visitor):
         if ctx.condition():
             return self.visit(ctx.condition(0))
 
-    # ================= EXPRESIONES =================
+    # EXPRESIONES
     def visitExpr(self, ctx):
-
-        if ctx.getChildCount() == 3 and ctx.getChild(1).getText() in ['+', '-']:
-            t1 = self.visit(ctx.getChild(0))
-            t2 = self.visit(ctx.getChild(2))
-
-            if t1 != t2:
-                raise Exception("Error: operación entre tipos incompatibles")
-
-            return t1
-
-        return self.visit(ctx.term())
-
-    def visitTerm(self, ctx):
-
-        if ctx.getChildCount() == 3:
-            t1 = self.visit(ctx.getChild(0))
-            t2 = self.visit(ctx.getChild(2))
-            op = ctx.getChild(1).getText()
-
-            if t1 != t2:
-                raise Exception("Error: operación entre tipos incompatibles")
-
-            if op == '%':
-                if t1 != "int":
-                    raise Exception("Error: % solo válido para enteros")
-                return "int"
-
-            return t1
-
-        return self.visit(ctx.factor())
-
-    def visitFactor(self, ctx):
 
         if ctx.NUM():
             return "int"
@@ -244,28 +263,40 @@ class SemanticVisitor(gramatica_v4Visitor):
         if ctx.TRUE() or ctx.FALSE():
             return "bool"
 
-        # Array access: VAR '[' expr ']'  → 4 children (must check BEFORE plain VAR)
-        if ctx.getChildCount() == 4:
+        # ARRAY ACCESS
+        if ctx.getChildCount() == 4 and ctx.getChild(1).getText() == '[':
             nombre = ctx.VAR().getText()
             var = self.tabla.obtener(nombre)
 
             if "[]" not in var["tipo"]:
-                raise Exception("Error: variable no es array")
+                raise Exception("Error: variable no es un array")
 
-            tipo_index = self.visit(ctx.expr())
+            tipo_index = self.visit(ctx.expr(0))
             if tipo_index != "int":
                 raise Exception("Error: índice debe ser int")
 
             return var["tipo"].replace("[]", "")
 
-        # Function call (must check BEFORE plain VAR because functionCall also has a VAR token)
-        if ctx.functionCall():
-            return self.visit(ctx.functionCall())
-
-        # Plain variable
         if ctx.VAR():
             return self.tabla.obtener(ctx.VAR().getText())["tipo"]
 
-        # Parenthesized expression: '(' expr ')'
-        if ctx.getChildCount() == 3:
-            return self.visit(ctx.expr())
+        if ctx.functionCall():
+            return self.visit(ctx.functionCall())
+
+        if len(ctx.expr()) == 2:
+            t1 = self.visit(ctx.expr(0))
+            t2 = self.visit(ctx.expr(1))
+            op = ctx.getChild(1).getText()
+
+            if t1 != t2:
+                raise Exception("Error: operación entre tipos incompatibles")
+
+            if op == '%':
+                if t1 != "int":
+                    raise Exception("Error: % solo válido para enteros")
+                return "int"
+
+            return t1
+
+        if ctx.expr():
+            return self.visit(ctx.expr(0))
