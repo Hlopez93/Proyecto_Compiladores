@@ -1,3 +1,4 @@
+from flask import ctx
 from llvmlite import ir
 from compiler.gramatica_v4Visitor import gramatica_v4Visitor
 
@@ -84,14 +85,14 @@ class IRGenerator(gramatica_v4Visitor):
             ptr_cast = self.builder.bitcast(array, ir.IntType(32).as_pointer())
             self.builder.store(ptr_cast, ptr)
 
-        elif ctx.expr():
-            val = self.visit(ctx.expr())
+        elif ctx.valueExpr():
+            val = self.visit(ctx.valueExpr())
             self.builder.store(val, ptr)
 
     # ASIGNACIÓN
     def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
-        val = self.visit(ctx.expr())
+        val = self.visit(ctx.valueExpr())
         self.builder.store(val, self.variables[nombre])
 
     # EXPRESIONES
@@ -233,8 +234,68 @@ class IRGenerator(gramatica_v4Visitor):
 
         self.builder.position_at_start(end_block)
 
-    # BREAK / CONTINUE
+    # FOR
+    def visitForStatement(self, ctx):
+
+        cond_block = self.func.append_basic_block("for_cond")
+        body_block = self.func.append_basic_block("for_body")
+        update_block = self.func.append_basic_block("for_update")
+        end_block = self.func.append_basic_block("for_end")
+
+        # INIT
+        if ctx.forInit():
+
+            if ctx.forInit().declarationStatement():
+                self.visit(ctx.forInit().declarationStatement())
+
+            elif ctx.forInit().assignmentStatement():
+                self.visit(ctx.forInit().assignmentStatement())
+
+        self.builder.branch(cond_block)
+
+        # COND
+        self.builder.position_at_start(cond_block)
+
+        if ctx.condition():
+
+            cond = self.visit(ctx.condition())
+            self.builder.cbranch(cond, body_block, end_block)
+
+        else:
+            self.builder.branch(body_block)
+
+        # BODY
+        self.builder.position_at_start(body_block)
+
+        self.loop_stack.append({
+            "break": end_block,
+            "continue": update_block
+        })
+
+        self.visit(ctx.block())
+
+        self.loop_stack.pop()
+
+        if not self.builder.block.is_terminated:
+            self.builder.branch(update_block)
+
+        # UPDATE
+        self.builder.position_at_start(update_block)
+
+        if ctx.forUpdate():
+            self.visit(ctx.forUpdate().assignmentStatement())
+
+        if not self.builder.block.is_terminated:
+            self.builder.branch(cond_block)
+
+        # END
+        self.builder.position_at_start(end_block)
+
     def visitBreakStmt(self, ctx):
+
+        if not self.loop_stack:
+            return
+
         target = self.loop_stack[-1]["break"]
         self.builder.branch(target)
 
@@ -242,10 +303,46 @@ class IRGenerator(gramatica_v4Visitor):
         self.builder.position_at_start(new_block)
 
     def visitContinueStmt(self, ctx):
+
+        if not self.loop_stack:
+            return
+
         target = self.loop_stack[-1]["continue"]
         self.builder.branch(target)
 
         new_block = self.func.append_basic_block("after_continue")
+        self.builder.position_at_start(new_block)
+
+    # BREAK / CONTINUE
+    def visitBreakStmt(self, ctx):
+
+        # break dentro de switch
+        if not self.loop_stack:
+            return
+
+        target = self.loop_stack[-1]["break"]
+
+        self.builder.branch(target)
+
+        new_block = self.func.append_basic_block(
+            f"after_break_{len(self.func.blocks)}"
+        )
+
+        self.builder.position_at_start(new_block)
+
+    def visitContinueStmt(self, ctx):
+
+        if not self.loop_stack:
+            return
+
+        target = self.loop_stack[-1]["continue"]
+
+        self.builder.branch(target)
+
+        new_block = self.func.append_basic_block(
+            f"after_continue_{len(self.func.blocks)}"
+        )
+
         self.builder.position_at_start(new_block)
 
     # FUNCIONES

@@ -42,8 +42,8 @@ class InterpreterVisitor(gramatica_v4Visitor):
 
         if ctx.arrayLiteral():
             valor = self.visit(ctx.arrayLiteral())
-        elif ctx.expr():
-            valor = self.visit(ctx.expr())
+        elif ctx.valueExpr():
+            valor = self.visit(ctx.valueExpr())
 
         self.tabla.declarar(
             nombre,
@@ -156,6 +156,52 @@ class InterpreterVisitor(gramatica_v4Visitor):
 
     def visitContinueStmt(self, ctx):
         raise ContinueException()
+
+    # SWITCH
+    def visitSwitchStatement(self, ctx):
+
+        valor_switch = self.visit(ctx.expr())
+
+        ejecutado = False
+
+        for case_ctx in ctx.caseClause():
+
+            valor_case = self.visit(case_ctx.literal())
+
+            if valor_switch == valor_case:
+
+                ejecutado = True
+
+                try:
+
+                    for stmt in case_ctx.statement():
+                        self.visit(stmt)
+
+                except BreakException:
+                    return
+
+                break
+
+        if not ejecutado and ctx.defaultClause():
+
+            try:
+
+                for stmt in ctx.defaultClause().statement():
+                    self.visit(stmt)
+
+            except BreakException:
+                return
+            
+    def visitLiteral(self, ctx):
+
+        if ctx.NUM():
+            return int(ctx.NUM().getText())
+
+        if ctx.FLOAT():
+            return float(ctx.FLOAT().getText())
+
+        if ctx.STRING():
+            return ctx.STRING().getText()[1:-1]
 
     # IMPORT (no-op)
     def visitImportStmt(self, ctx):
