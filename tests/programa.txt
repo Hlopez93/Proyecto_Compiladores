@@ -20,4 +20,14 @@ program {
     print(fibonacci(20));
     print("Total pares: ");
     print(total);
+
+    struct Persona {
+        int edad;
+        int altura;
+    }
+    var Persona p;
+    p.edad = 30;
+    print("Edad de persona: ");
+    print(p.edad);
+
 }

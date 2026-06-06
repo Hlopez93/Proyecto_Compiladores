@@ -13,6 +13,7 @@ class IRGenerator(gramatica_v4Visitor):
 
         self.variables = {}
         self.functions = {}
+        self.structs = {}
 
         self.loop_stack = []
 
@@ -55,7 +56,27 @@ class IRGenerator(gramatica_v4Visitor):
         if "[]" in t:
             return ir.IntType(32).as_pointer()
 
+        if t in self.structs:
+            return self.structs[t]["type"]
+
         return ir.VoidType()
+    
+    def visitStructDecl(self, ctx):
+        nombre = ctx.VAR().getText()
+        field_types = []
+        field_map = {}
+
+        for idx, field in enumerate(ctx.structField()):
+            field_name = field.VAR().getText()
+            llvm_type = self.get_type(field.tipo())
+            field_types.append(llvm_type)
+            field_map[field_name] = idx
+
+        struct_type = ir.LiteralStructType(field_types)
+        self.structs[nombre] = {
+            "type": struct_type,
+            "fields": field_map
+        }
 
     # DECLARACIÓN
     def visitDeclaration(self, ctx):
@@ -89,10 +110,48 @@ class IRGenerator(gramatica_v4Visitor):
             self.builder.store(val, ptr)
 
     # ASIGNACIÓN
-    def visitAssignmentStatement(self, ctx):
+    def visitSimpleAssign(self, ctx):
         nombre = ctx.VAR().getText()
-        val = self.visit(ctx.expr())
+        val    = self.visit(ctx.expr())
         self.builder.store(val, self.variables[nombre])
+
+    def visitFieldAssign(self, ctx):
+        struct_name = ctx.VAR()[0].getText()
+        field_name  = ctx.VAR()[1].getText()
+        val         = self.visit(ctx.expr())
+        field_ptr   = self.getStructFieldPtr(struct_name, field_name)
+        self.builder.store(val, field_ptr)
+
+    def getStructFieldPtr(self, struct_name, field_name):
+        struct_ptr = self.variables[struct_name]
+        struct_type = struct_ptr.type.pointee
+        struct_info = None
+        
+        for s in self.structs.values():
+            if s["type"] == struct_type:
+                struct_info = s
+                break
+
+        field_index = struct_info["fields"][field_name]
+
+        return self.builder.gep(
+            struct_ptr,
+            [
+                ir.Constant(ir.IntType(32), 0),
+                ir.Constant(ir.IntType(32), field_index)
+            ]
+        )
+
+    def visitFieldAccess(self, ctx):
+        struct_name = ctx.VAR()[0].getText()
+        field_name = ctx.VAR()[1].getText()
+
+        field_ptr = self.getStructFieldPtr(
+            struct_name,
+            field_name
+        )
+
+        return self.builder.load(field_ptr)
 
     # EXPRESIONES
     def visitExpr(self, ctx):
@@ -126,6 +185,10 @@ class IRGenerator(gramatica_v4Visitor):
 
             elem_ptr = self.builder.gep(arr_ptr, [index])
             return self.builder.load(elem_ptr)
+
+        # struct field access
+        if ctx.fieldAccess():
+            return self.visit(ctx.fieldAccess())
 
         # function call
         if ctx.functionCall():
@@ -327,6 +390,10 @@ class IRGenerator(gramatica_v4Visitor):
 
         elif isinstance(val.type, ir.DoubleType):
             fmt = self.create_string("%f\n")
+            self.builder.call(self.printf, [fmt, val])
+
+        elif val.type == ir.IntType(8).as_pointer():
+            fmt = self.create_string("%s\n")
             self.builder.call(self.printf, [fmt, val])
 
     # STRING

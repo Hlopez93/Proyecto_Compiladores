@@ -17,11 +17,14 @@ statement
     | breakStmt
     | continueStmt
     | switchStatement
+    | structDecl
     ;
 
 // DECLARACION
 declaration : declarationStatement SEMI ;
 declarationStatement : DECL tipo VAR (ASIG (expr | arrayLiteral))? ;
+structDecl : STRUCT VAR LLA structField* LLC;
+structField : tipo VAR SEMI;
 
 // TIPOS
 tipo : baseTipo ('[' ']')? ;
@@ -32,11 +35,14 @@ baseTipo
     | STRING_T
     | BOOL
     | VOID
+    | VAR
     ;
 
 // ASIGNACION
 assignment : assignmentStatement SEMI ;
-assignmentStatement : VAR ASIG expr ;
+assignmentStatement : VAR ASIG expr                   # SimpleAssign
+                    | VAR '.' VAR ASIG expr            # FieldAssign
+                    ;
 
 // IF
 ifStatement : IF PAI condition PAD block (ELSE block)? ;
@@ -97,6 +103,7 @@ expr
     | expr relop expr
     | functionCall
     | VAR '[' expr ']'
+    | fieldAccess
     | TRUE
     | FALSE
     | NUM
@@ -112,6 +119,9 @@ argList : expr (COMMA expr)* ;
 
 // ARRAY
 arrayLiteral : '[' expr (COMMA expr)* ']' ;
+
+// FIELD ACCESS
+fieldAccess : VAR DOT VAR ;
 
 // RELACIONALES
 relop
@@ -143,7 +153,10 @@ ELSE    : 'else' ;
 WHILE   : 'while' ;
 FOR     : 'for' ;
 
+DOT: '.';
+
 // IMPLEMENTACIÓN DE TOKENS
+STRUCT : 'struct' ;
 SWITCH  : 'switch' ;
 CASE    : 'case' ;
 DEFAULT : 'default' ;

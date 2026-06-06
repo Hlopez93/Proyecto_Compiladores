@@ -1,6 +1,6 @@
-# Generated from compiler/gramatica_v4.g4 by ANTLR 4.9.2
+# Generated from compiler/gramatica_v4.g4 by ANTLR 4.13.1
 from antlr4 import *
-if __name__ is not None and "." in __name__:
+if "." in __name__:
     from .gramatica_v4Parser import gramatica_v4Parser
 else:
     from gramatica_v4Parser import gramatica_v4Parser
@@ -44,6 +44,24 @@ class gramatica_v4Listener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by gramatica_v4Parser#structDecl.
+    def enterStructDecl(self, ctx:gramatica_v4Parser.StructDeclContext):
+        pass
+
+    # Exit a parse tree produced by gramatica_v4Parser#structDecl.
+    def exitStructDecl(self, ctx:gramatica_v4Parser.StructDeclContext):
+        pass
+
+
+    # Enter a parse tree produced by gramatica_v4Parser#structField.
+    def enterStructField(self, ctx:gramatica_v4Parser.StructFieldContext):
+        pass
+
+    # Exit a parse tree produced by gramatica_v4Parser#structField.
+    def exitStructField(self, ctx:gramatica_v4Parser.StructFieldContext):
+        pass
+
+
     # Enter a parse tree produced by gramatica_v4Parser#tipo.
     def enterTipo(self, ctx:gramatica_v4Parser.TipoContext):
         pass
@@ -71,12 +89,21 @@ class gramatica_v4Listener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by gramatica_v4Parser#assignmentStatement.
-    def enterAssignmentStatement(self, ctx:gramatica_v4Parser.AssignmentStatementContext):
+    # Enter a parse tree produced by gramatica_v4Parser#SimpleAssign.
+    def enterSimpleAssign(self, ctx:gramatica_v4Parser.SimpleAssignContext):
         pass
 
-    # Exit a parse tree produced by gramatica_v4Parser#assignmentStatement.
-    def exitAssignmentStatement(self, ctx:gramatica_v4Parser.AssignmentStatementContext):
+    # Exit a parse tree produced by gramatica_v4Parser#SimpleAssign.
+    def exitSimpleAssign(self, ctx:gramatica_v4Parser.SimpleAssignContext):
+        pass
+
+
+    # Enter a parse tree produced by gramatica_v4Parser#FieldAssign.
+    def enterFieldAssign(self, ctx:gramatica_v4Parser.FieldAssignContext):
+        pass
+
+    # Exit a parse tree produced by gramatica_v4Parser#FieldAssign.
+    def exitFieldAssign(self, ctx:gramatica_v4Parser.FieldAssignContext):
         pass
 
 
@@ -284,6 +311,15 @@ class gramatica_v4Listener(ParseTreeListener):
 
     # Exit a parse tree produced by gramatica_v4Parser#arrayLiteral.
     def exitArrayLiteral(self, ctx:gramatica_v4Parser.ArrayLiteralContext):
+        pass
+
+
+    # Enter a parse tree produced by gramatica_v4Parser#fieldAccess.
+    def enterFieldAccess(self, ctx:gramatica_v4Parser.FieldAccessContext):
+        pass
+
+    # Exit a parse tree produced by gramatica_v4Parser#fieldAccess.
+    def exitFieldAccess(self, ctx:gramatica_v4Parser.FieldAccessContext):
         pass
 
 

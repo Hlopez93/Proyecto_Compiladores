@@ -15,7 +15,8 @@ class ContinueException(Exception):
 class InterpreterVisitor(gramatica_v4Visitor):
 
     def __init__(self):
-        self.tabla = TablaSimbolos()
+        self.tabla   = TablaSimbolos()
+        self.structs = {}   # nombre_struct -> { campo: tipo }
 
     # ROOT
     def visitRoot(self, ctx):
@@ -29,14 +30,24 @@ class InterpreterVisitor(gramatica_v4Visitor):
             self.visit(stmt)
         self.tabla.pop_scope()
 
+    # STRUCT
+    def visitStructDecl(self, ctx):
+        nombre = ctx.VAR().getText()
+        campos = {}
+        for field in ctx.structField():
+            campo = field.VAR().getText()
+            tipo  = field.tipo().getText()
+            campos[campo] = tipo
+        self.structs[nombre] = campos
+
     # DECLARACIÓN
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
     def visitDeclarationStatement(self, ctx):
         nombre = ctx.VAR().getText()
-        tipo = ctx.tipo().getText()
-        decl = ctx.DECL().getText()  # var / let / const
+        tipo   = ctx.tipo().getText()
+        decl   = ctx.DECL().getText()  # var / let / const
 
         valor = None
 
@@ -45,36 +56,56 @@ class InterpreterVisitor(gramatica_v4Visitor):
         elif ctx.expr():
             valor = self.visit(ctx.expr())
 
-        self.tabla.declarar(
-            nombre,
-            tipo,
-            valor,
-            mutable=(decl != "const")
-        )
+        # Para structs inicializamos con un dict vacío de campos
+        if valor is None and tipo in self.structs:
+            valor = {campo: None for campo in self.structs[tipo]}
+
+        self.tabla.declarar(nombre, tipo, valor, mutable=(decl != "const"))
 
     # ARRAY
     def visitArrayLiteral(self, ctx):
         return [self.visit(e) for e in ctx.expr()]
 
     # ASIGNACIÓN
-    def visitAssignment(self, ctx):
-        self.visit(ctx.assignmentStatement())
-
-    def visitAssignmentStatement(self, ctx):
+    def visitSimpleAssign(self, ctx):
         nombre = ctx.VAR().getText()
-        valor = self.visit(ctx.expr())
+        valor  = self.visit(ctx.expr())
 
         var = self.tabla.obtener(nombre)
-
         if not var.get("mutable", True):
             raise Exception(f"Error: '{nombre}' es const y no puede modificarse")
 
         self.tabla.asignar(nombre, valor)
 
+    def visitFieldAssign(self, ctx):
+        struct_var = ctx.VAR()[0].getText()
+        field_name = ctx.VAR()[1].getText()
+        valor      = self.visit(ctx.expr())
+
+        var = self.tabla.obtener(struct_var)
+        if not isinstance(var["valor"], dict):
+            raise Exception(f"Error: '{struct_var}' no es un struct")
+
+        var["valor"][field_name] = valor
+
+    # FIELD ACCESS
+    def visitFieldAccess(self, ctx):
+        struct_var = ctx.VAR()[0].getText()
+        field_name = ctx.VAR()[1].getText()
+
+        var = self.tabla.obtener(struct_var)
+        if not isinstance(var["valor"], dict):
+            raise Exception(f"Error: '{struct_var}' no es un struct")
+
+        if field_name not in var["valor"]:
+            raise Exception(f"Error: campo '{field_name}' no existe en '{struct_var}'")
+
+        return var["valor"][field_name]
+
     # FUNCIONES
     def visitFunctionDecl(self, ctx):
         nombre = ctx.VAR().getText()
-        tipo = ctx.tipo().getText()
+        tipo   = ctx.tipo().getText()
 
         parametros = []
         if ctx.paramList():
@@ -159,7 +190,6 @@ class InterpreterVisitor(gramatica_v4Visitor):
 
     # IMPORT (no-op)
     def visitImportStmt(self, ctx):
-        # No hace nada por ahora
         return
 
     # CONDICIONES
@@ -175,13 +205,13 @@ class InterpreterVisitor(gramatica_v4Visitor):
             return not self.visit(ctx.condition(0))
 
         if ctx.relop():
-            a = self.visit(ctx.expr(0))
-            b = self.visit(ctx.expr(1))
+            a  = self.visit(ctx.expr(0))
+            b  = self.visit(ctx.expr(1))
             op = ctx.relop().getText()
 
             return {
-                '>': a > b,
-                '<': a < b,
+                '>':  a >  b,
+                '<':  a <  b,
                 '>=': a >= b,
                 '<=': a <= b,
                 '==': a == b,
@@ -219,13 +249,17 @@ class InterpreterVisitor(gramatica_v4Visitor):
         # ARRAY ACCESS
         if ctx.getChildCount() == 4 and ctx.getChild(1).getText() == '[':
             nombre = ctx.VAR().getText()
-            arr = self.tabla.obtener(nombre)["valor"]
-            index = self.visit(ctx.expr(0))
+            arr    = self.tabla.obtener(nombre)["valor"]
+            index  = self.visit(ctx.expr(0))
 
             if not isinstance(arr, list):
                 raise Exception("Error: variable no es un array")
 
             return arr[index]
+
+        # FIELD ACCESS en expr
+        if ctx.fieldAccess():
+            return self.visit(ctx.fieldAccess())
 
         # VARIABLE
         if ctx.VAR():
@@ -237,8 +271,8 @@ class InterpreterVisitor(gramatica_v4Visitor):
 
         # OPERACIONES
         if len(ctx.expr()) == 2:
-            a = self.visit(ctx.expr(0))
-            b = self.visit(ctx.expr(1))
+            a  = self.visit(ctx.expr(0))
+            b  = self.visit(ctx.expr(1))
             op = ctx.getChild(1).getText()
 
             if op == '+': return a + b

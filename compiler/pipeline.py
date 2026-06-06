@@ -190,10 +190,14 @@ def ejecutar_codigo(codigo: str, manual_passes=None, targets=None):
 
         tiempo = (time.time() - start) * 1000
 
+        # Reportar si se saltaron targets por falta de herramientas
+        skipped = [t for t, v in resultado["ejecutables"].items() if v.get("skipped")]
+        estado_nativo = f"SKIP ({', '.join(skipped)})" if skipped else "OK"
+
         resultado["fases"].append(
             (
                 "Código Nativo",
-                "OK",
+                estado_nativo,
                 round(tiempo, 2)
             )
         )
