@@ -1,3 +1,4 @@
+from flask import ctx
 from llvmlite import ir
 from compiler.gramatica_v4Visitor import gramatica_v4Visitor
 
@@ -84,14 +85,14 @@ class IRGenerator(gramatica_v4Visitor):
             ptr_cast = self.builder.bitcast(array, ir.IntType(32).as_pointer())
             self.builder.store(ptr_cast, ptr)
 
-        elif ctx.expr():
-            val = self.visit(ctx.expr())
+        elif ctx.valueExpr():
+            val = self.visit(ctx.valueExpr())
             self.builder.store(val, ptr)
 
     # ASIGNACIÓN
     def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
-        val = self.visit(ctx.expr())
+        val = self.visit(ctx.valueExpr())
         self.builder.store(val, self.variables[nombre])
 
     # EXPRESIONES

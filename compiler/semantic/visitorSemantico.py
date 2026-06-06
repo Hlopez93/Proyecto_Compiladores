@@ -69,7 +69,7 @@ class SemanticVisitor(gramatica_v4Visitor):
         if not var.get("mutable", True):
             raise Exception(f"Error: '{nombre}' es const y no puede modificarse")
 
-        tipo_expr = self.visit(ctx.expr())
+        tipo_expr = self.visit(ctx.valueExpr())
 
         if tipo_expr != var["tipo"]:
             raise Exception("Error semántico: tipos incompatibles en asignación")

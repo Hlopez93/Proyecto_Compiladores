@@ -42,8 +42,8 @@ class InterpreterVisitor(gramatica_v4Visitor):
 
         if ctx.arrayLiteral():
             valor = self.visit(ctx.arrayLiteral())
-        elif ctx.expr():
-            valor = self.visit(ctx.expr())
+        elif ctx.valueExpr():
+            valor = self.visit(ctx.valueExpr())
 
         self.tabla.declarar(
             nombre,

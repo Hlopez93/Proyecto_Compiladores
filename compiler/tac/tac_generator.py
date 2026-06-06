@@ -37,8 +37,8 @@ class TACGenerator(gramatica_v4Visitor):
             valores = [self.visit(e) for e in ctx.arrayLiteral().expr()]
             self.emit(f"{nombre} = [{', '.join(valores)}]")
 
-        elif ctx.expr():
-            val = self.visit(ctx.expr())
+        elif ctx.valueExpr():
+            val = self.visit(ctx.valueExpr())
             self.emit(f"{nombre} = {val}")
 
     # ASIGNACIÓN
@@ -47,7 +47,7 @@ class TACGenerator(gramatica_v4Visitor):
 
     def visitAssignmentStatement(self, ctx):
         nombre = ctx.VAR().getText()
-        val = self.visit(ctx.expr())
+        val = self.visit(ctx.valueExpr())
         self.emit(f"{nombre} = {val}")
 
     # EXPRESIONES
