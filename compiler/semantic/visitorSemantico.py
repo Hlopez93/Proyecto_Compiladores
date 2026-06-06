@@ -5,9 +5,9 @@ class SemanticVisitor(gramatica_v4Visitor):
 
     def __init__(self):
         self.tabla = TablaSimbolos()
+        self.structs = {}          # nombre_struct -> { campo: tipo }
         self.current_function = None
-        self.in_loop = 0  # control para break/continue
-        self.in_switch = 0
+        self.in_loop = 0
 
     # ROOT
     def visitRoot(self, ctx):
@@ -21,62 +21,98 @@ class SemanticVisitor(gramatica_v4Visitor):
             self.visit(stmt)
         self.tabla.pop_scope()
 
+    # STRUCT
+    def visitStructDecl(self, ctx):
+        nombre = ctx.VAR().getText()
+        campos = {}
+        for field in ctx.structField():
+            campo = field.VAR().getText()
+            tipo  = field.tipo().getText()
+            campos[campo] = tipo
+        self.structs[nombre] = campos
+
     # DECLARACIÓN
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
     def visitDeclarationStatement(self, ctx):
         nombre = ctx.VAR().getText()
-        tipo = ctx.tipo().getText()
-        decl = ctx.DECL().getText()  # var | let | const
+        tipo   = ctx.tipo().getText()
+        decl   = ctx.DECL().getText()  # var | let | const
 
         valor_tipo = None
 
         if ctx.arrayLiteral():
             valor_tipo = self.visit(ctx.arrayLiteral())
-
         elif ctx.expr():
             valor_tipo = self.visit(ctx.expr())
 
-        # Validación de tipos
-        if valor_tipo:
+        # No validar tipo si es un struct (sin inicializador primitivo)
+        if valor_tipo and tipo not in self.structs:
             if valor_tipo != tipo:
                 raise Exception(f"Error semántico: tipos incompatibles en declaración '{nombre}'")
 
-        self.tabla.declarar(
-            nombre,
-            tipo,
-            mutable=(decl != "const")
-        )
+        self.tabla.declarar(nombre, tipo, mutable=(decl != "const"))
 
     # ARRAY
     def visitArrayLiteral(self, ctx):
         tipos = [self.visit(e) for e in ctx.expr()]
-
         if len(set(tipos)) != 1:
             raise Exception("Error semántico: array con tipos mixtos")
-
         return tipos[0] + "[]"
 
     # ASIGNACIÓN
-    def visitAssignment(self, ctx):
-        self.visit(ctx.assignmentStatement())
-
-    def visitAssignmentStatement(self, ctx):
+    def visitSimpleAssign(self, ctx):
         nombre = ctx.VAR().getText()
-        var = self.tabla.obtener(nombre)
+        var    = self.tabla.obtener(nombre)
 
         if not var.get("mutable", True):
             raise Exception(f"Error: '{nombre}' es const y no puede modificarse")
 
         tipo_expr = self.visit(ctx.valueExpr())
 
-        if tipo_expr != var["tipo"]:
+        # No comparar tipos struct con primitivos
+        if var["tipo"] not in self.structs and tipo_expr != var["tipo"]:
             raise Exception("Error semántico: tipos incompatibles en asignación")
+
+    def visitFieldAssign(self, ctx):
+        struct_var  = ctx.VAR()[0].getText()
+        field_name  = ctx.VAR()[1].getText()
+
+        var         = self.tabla.obtener(struct_var)
+        struct_tipo = var["tipo"]
+
+        if struct_tipo not in self.structs:
+            raise Exception(f"Error semántico: '{struct_var}' no es de tipo struct")
+        if field_name not in self.structs[struct_tipo]:
+            raise Exception(f"Error semántico: campo '{field_name}' no existe en '{struct_tipo}'")
+
+        tipo_campo = self.structs[struct_tipo][field_name]
+        tipo_expr  = self.visit(ctx.expr())
+
+        if tipo_expr != tipo_campo:
+            raise Exception(
+                f"Error semántico: tipos incompatibles en asignación de campo '{field_name}'"
+            )
+
+    # FIELD ACCESS
+    def visitFieldAccess(self, ctx):
+        struct_var  = ctx.VAR()[0].getText()
+        field_name  = ctx.VAR()[1].getText()
+
+        var         = self.tabla.obtener(struct_var)
+        struct_tipo = var["tipo"]
+
+        if struct_tipo not in self.structs:
+            raise Exception(f"Error semántico: '{struct_var}' no es de tipo struct")
+        if field_name not in self.structs[struct_tipo]:
+            raise Exception(f"Error semántico: campo '{field_name}' no existe en '{struct_tipo}'")
+
+        return self.structs[struct_tipo][field_name]
 
     # FUNCIONES
     def visitFunctionDecl(self, ctx):
-        nombre = ctx.VAR().getText()
+        nombre       = ctx.VAR().getText()
         tipo_retorno = ctx.tipo().getText()
 
         parametros = []
@@ -90,13 +126,11 @@ class SemanticVisitor(gramatica_v4Visitor):
         self.current_function = tipo_retorno
 
         self.tabla.push_scope()
-
         for n, t in parametros:
             self.tabla.declarar(n, t)
-
         self.visit(ctx.block())
-
         self.tabla.pop_scope()
+
         self.current_function = prev
 
     def visitReturnStmt(self, ctx):
@@ -113,7 +147,7 @@ class SemanticVisitor(gramatica_v4Visitor):
 
     def visitFunctionCall(self, ctx):
         nombre = ctx.VAR().getText()
-        func = self.tabla.obtener_funcion(nombre)
+        func   = self.tabla.obtener_funcion(nombre)
 
         args = []
         if ctx.argList():
@@ -169,7 +203,6 @@ class SemanticVisitor(gramatica_v4Visitor):
             self.visit(ctx.forUpdate().assignmentStatement())
 
         self.in_loop -= 1
-
         self.tabla.pop_scope()
 
     def visitBreakStmt(self, ctx):
@@ -210,7 +243,6 @@ class SemanticVisitor(gramatica_v4Visitor):
 
     # IMPORT
     def visitImportStmt(self, ctx):
-        # No se valida aún (fase futura)
         return
     
     def visitLiteral(self, ctx):
@@ -266,7 +298,7 @@ class SemanticVisitor(gramatica_v4Visitor):
         # ARRAY ACCESS
         if ctx.getChildCount() == 4 and ctx.getChild(1).getText() == '[':
             nombre = ctx.VAR().getText()
-            var = self.tabla.obtener(nombre)
+            var    = self.tabla.obtener(nombre)
 
             if "[]" not in var["tipo"]:
                 raise Exception("Error: variable no es un array")
@@ -276,6 +308,10 @@ class SemanticVisitor(gramatica_v4Visitor):
                 raise Exception("Error: índice debe ser int")
 
             return var["tipo"].replace("[]", "")
+
+        # FIELD ACCESS en expr
+        if ctx.fieldAccess():
+            return self.visit(ctx.fieldAccess())
 
         if ctx.VAR():
             return self.tabla.obtener(ctx.VAR().getText())["tipo"]

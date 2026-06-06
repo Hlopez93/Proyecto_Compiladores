@@ -1,4 +1,4 @@
-# Generated from gramatica_v4.g4 by ANTLR 4.13.2
+# Generated from compiler/gramatica_v4.g4 by ANTLR 4.13.1
 from antlr4 import *
 if "." in __name__:
     from .gramatica_v4Parser import gramatica_v4Parser
@@ -29,6 +29,16 @@ class gramatica_v4Visitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by gramatica_v4Parser#structDecl.
+    def visitStructDecl(self, ctx:gramatica_v4Parser.StructDeclContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by gramatica_v4Parser#structField.
+    def visitStructField(self, ctx:gramatica_v4Parser.StructFieldContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by gramatica_v4Parser#tipo.
     def visitTipo(self, ctx:gramatica_v4Parser.TipoContext):
         return self.visitChildren(ctx)
@@ -44,8 +54,13 @@ class gramatica_v4Visitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by gramatica_v4Parser#assignmentStatement.
-    def visitAssignmentStatement(self, ctx:gramatica_v4Parser.AssignmentStatementContext):
+    # Visit a parse tree produced by gramatica_v4Parser#SimpleAssign.
+    def visitSimpleAssign(self, ctx:gramatica_v4Parser.SimpleAssignContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by gramatica_v4Parser#FieldAssign.
+    def visitFieldAssign(self, ctx:gramatica_v4Parser.FieldAssignContext):
         return self.visitChildren(ctx)
 
 
@@ -161,6 +176,11 @@ class gramatica_v4Visitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by gramatica_v4Parser#arrayLiteral.
     def visitArrayLiteral(self, ctx:gramatica_v4Parser.ArrayLiteralContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by gramatica_v4Parser#fieldAccess.
+    def visitFieldAccess(self, ctx:gramatica_v4Parser.FieldAccessContext):
         return self.visitChildren(ctx)
 
 

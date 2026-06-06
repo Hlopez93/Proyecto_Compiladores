@@ -8,6 +8,8 @@ class TACGenerator(gramatica_v4Visitor):
         self.label_count = 0
 
         self.loop_stack = []  # para break / continue
+        self.structs = {}  # para definir estructuras
+        self.variables = {}  # para almacenar variables y sus tipos
 
     # UTILIDADES
     def new_temp(self):
@@ -26,12 +28,26 @@ class TACGenerator(gramatica_v4Visitor):
         for stmt in ctx.statement():
             self.visit(stmt)
 
+    def visitStructDecl(self, ctx):
+        nombre = ctx.VAR().getText()
+        offset = 0
+        self.structs[nombre] = {}   # 🔥 IMPORTANTE
+        self.emit(f"struct {nombre}")
+        for field in ctx.structField():
+            campo = field.VAR().getText()
+            self.structs[nombre][campo] = offset  # 🔥 MAPA REAL
+            self.emit(f"field {campo} offset {offset}")
+            offset += 4
+        self.emit(f"end_struct {nombre}")
+    
     # DECLARACIÓN
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
     def visitDeclarationStatement(self, ctx):
         nombre = ctx.VAR().getText()
+        tipo = ctx.tipo().getText()
+        self.variables[nombre] = tipo
 
         if ctx.arrayLiteral():
             valores = [self.visit(e) for e in ctx.arrayLiteral().expr()]
@@ -42,13 +58,18 @@ class TACGenerator(gramatica_v4Visitor):
             self.emit(f"{nombre} = {val}")
 
     # ASIGNACIÓN
-    def visitAssignment(self, ctx):
-        self.visit(ctx.assignmentStatement())
-
-    def visitAssignmentStatement(self, ctx):
+    def visitSimpleAssign(self, ctx):
         nombre = ctx.VAR().getText()
-        val = self.visit(ctx.valueExpr())
+        val    = self.visit(ctx.expr())
         self.emit(f"{nombre} = {val}")
+
+    def visitFieldAssign(self, ctx):
+        struct_name = ctx.VAR()[0].getText()
+        field_name  = ctx.VAR()[1].getText()
+        val         = self.visit(ctx.expr())
+        struct_type = self.variables[struct_name]
+        offset      = self.structs[struct_type][field_name]
+        self.emit(f"{struct_name}[{offset}] = {val}")
 
     # EXPRESIONES
     def visitExpr(self, ctx):
@@ -78,6 +99,10 @@ class TACGenerator(gramatica_v4Visitor):
             self.emit(f"{temp} = {nombre}[{index}]")
             return temp
 
+        # STRUCT FIELD ACCESS
+        if ctx.fieldAccess():
+            return self.visit(ctx.fieldAccess())
+        
         # VARIABLE
         if ctx.VAR():
             return ctx.VAR().getText()
@@ -349,3 +374,19 @@ class TACGenerator(gramatica_v4Visitor):
     # IMPORT (fase futura)
     def visitImportStmt(self, ctx):
         return
+    
+    def visitFieldAccess(self, ctx):
+        var_name = ctx.VAR()[0].getText()
+        field_name = ctx.VAR()[1].getText()
+        struct_type = self.variables.get(var_name)
+        if struct_type is None:
+            raise Exception(f"{var_name} no está declarado")
+        struct_def = self.structs.get(struct_type)
+        if struct_def is None:
+            raise Exception(f"{struct_type} no es un struct")
+        if field_name not in struct_def:
+            raise Exception(f"{field_name} no existe en {struct_type}")
+        offset = struct_def[field_name]
+        temp = self.new_temp()
+        self.emit(f"{temp} = {var_name}[{offset}]")
+        return temp
