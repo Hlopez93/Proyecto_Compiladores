@@ -8,59 +8,78 @@
         <style>
             body {
                 margin: 0;
-                font-family: Arial;
+                padding: 0;
                 background: #1e1e1e;
-                color: white;
+                color: #e5e5e5;
+                font-family: "Segoe UI", Arial, sans-serif;
             }
             h2 {
-                margin: 10px;
-            }
-            section {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 10px;
-                padding: 10px;
-            }
-            /* Editor */
-            .editor-container {
-                grid-column: span 2;
-            }
-            .CodeMirror {
-                height: 250px;
-                border-radius: 5px;
-            }
-            button {
-                margin-top: 10px;
-                padding: 10px;
-                background: #007acc;
-                border: none;
-                color: white;
-                cursor: pointer;
-            }
-            button:hover {
-                background: #005f99;
+                margin: 0;
+                padding: 15px;
+                background: #252526;
+                border-bottom: 1px solid #444;
             }
             .panel {
-                background: #2d2d2d;
-                padding: 10px;
-                border-radius: 5px;
+                background: #252526;
+                border: 1px solid #3c3c3c;
+                border-radius: 8px;
+                padding: 12px;
+            }
+            .panel h3 {
+                margin-top: 0;
+                color: #4fc1ff;
             }
             pre {
                 background: #111;
                 padding: 10px;
+                border-radius: 5px;
                 overflow: auto;
-                max-height: 200px;
+                max-height: 350px;
+                white-space: pre-wrap;
+                font-family: Consolas, monospace;
             }
-            /* Estados */
+            button {
+                background: #0e639c;
+                border: none;
+                border-radius: 4px;
+                color: white;
+                padding: 8px 14px;
+                cursor: pointer;
+                margin: 5px;
+            }
+            button:hover {
+                background: #1177bb;
+            }
+            label {
+                margin-right: 12px;
+            }
             .ok {
                 color: #4CAF50;
             }
             .error {
                 color: #ff5555;
             }
-            /* Error highlight */
             .line-error {
-                background: rgba(255, 0, 0, 0.2);
+                background: rgba(255,0,0,0.2);
+            }
+            #diff {
+                background: #111;
+                border-radius: 5px;
+                padding: 10px;
+                max-height: 500px;
+                overflow: auto;
+                font-family: Consolas, monospace;
+            }
+            .diff-added {
+                background: rgba(0,120,0,0.35);
+                padding: 2px;
+            }
+            .diff-removed {
+                background: rgba(180,0,0,0.35);
+                padding: 2px;
+            }
+            .diff-same {
+                color: #d4d4d4;
             }
         </style>
     </head>
@@ -70,6 +89,21 @@
             <!-- Editor -->
             <div class="editor-container">
                 <textarea id="codigo"></textarea>
+            </div>
+            <div class="panel" style="grid-column: span 2;">
+                <h3>Optimización Manual LLVM</h3>
+                <label><input type="checkbox" class="pass-opt" value="mem2reg">mem2reg</label>
+                <label><input type="checkbox" class="pass-opt" value="instcombine">instcombine</label>
+                <label><input type="checkbox" class="pass-opt" value="simplifycfg">simplifycfg</label>
+                <label><input type="checkbox" class="pass-opt" value="dce">dce</label>
+                <label><input type="checkbox" class="pass-opt" value="inline">inline</label>
+                <label><input type="checkbox" class="pass-opt" value="loop-unroll">loop-unroll</label>
+                <button id="btnExportIR" onclick="exportarIRManual()" disabled>Exportar IR Manual</button>
+                <button onclick="ejecutarIRManual()">Ejecutar IR Manual</button>
+                <input type="checkbox" class="target-opt" value="linux" checked><label>Linux</label>
+                <input type="checkbox" class="target-opt" value="windows" checked><label>Windows</label>
+            </div>
+            <div class="editor-container">
                 <button onclick="compilar()">Compilar</button>
             </div>
             <!-- Fases -->
@@ -82,15 +116,29 @@
                 <h3>Error</h3>
                 <pre id="error"></pre>
             </div>
+            <!-- LLVM IR -->
+            <div class="panel">
+                <h3>LLVM IR Original</h3>
+                <pre id="ir"></pre>
+            </div>
+            <div class="panel">
+                <h3>LLVM IR Manual</h3>
+                <pre id="ir_manual"></pre>
+            </div>
+            <!-- IR Diff Viewer -->
+            <div class="panel" style="grid-column: span 2;">
+                <h3>IR Diff Viewer</h3>
+                <div id="diff"></div>
+            </div>
             <!-- TAC -->
             <div class="panel">
                 <h3>TAC</h3>
                 <pre id="tac"></pre>
             </div>
-            <!-- IR -->
+            <!-- Archivos creados -->
             <div class="panel">
-                <h3>LLVM IR</h3>
-                <pre id="ir"></pre>
+                <h3>Ejecutables Generados</h3>
+                <pre id="ejecutables"></pre>
             </div>
             <!-- Consola -->
             <div class="panel" style="grid-column: span 2;">
@@ -109,15 +157,23 @@
             });
             // COMPILAR
             function compilar() {
-                // limpiar errores visuales previos
-                editor.eachLine(line => {
-                    editor.removeLineClass(line, "background", "line-error");
-                });
+                const passes = [];
+                document
+                    .querySelectorAll(".pass-opt:checked")
+                    .forEach(cb => passes.push(cb.value));
+                const targets = [];
+                document
+                    .querySelectorAll(".target-opt:checked")
+                    .forEach(cb => targets.push(cb.value));
                 fetch("/compilar", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
                     body: JSON.stringify({
-                        codigo: editor.getValue()
+                        codigo: editor.getValue(),
+                        passes: passes,
+                        targets: targets
                     })
                 })
                 .then(res => res.json())
@@ -144,8 +200,43 @@
                     }
                     // OUTPUTS
                     document.getElementById("tac").textContent = data.tac || "";
-                    document.getElementById("ir").textContent = data.ir || "";
+                    document.getElementById("ejecutables").textContent = JSON.stringify(data.ejecutables, null, 2);
                     document.getElementById("output").textContent = data.output || "";
+                    document.getElementById("ir").textContent = data.ir || "";
+                    document.getElementById("ir_manual").textContent = data.ir_manual || "";
+                    const diffDiv = document.getElementById("diff");
+                    diffDiv.innerHTML = "";
+                    if (data.diff) {
+                        data.diff.forEach(line => {
+                            const div = document.createElement("div");
+                            div.textContent = line.text;
+                            if (line.type === "added") {
+                                div.className = "diff-added";
+                            }
+                            else if (line.type === "removed") {
+                                div.className = "diff-removed";
+                            }
+                            else {
+                                div.className = "diff-same";
+                            }
+                            diffDiv.appendChild(div);
+                        });
+                    }
+                    document.getElementById("btnExportIR").disabled = false;
+                });
+            }
+            function exportarIRManual() {
+                window.location.href = "/download/manual-ir";
+            }
+            function ejecutarIRManual() {
+                fetch("/run-manual-ir")
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success){
+                        document.getElementById("output").textContent = data.output;
+                    } else {
+                        alert(data.error);
+                    }
                 });
             }
         </script>

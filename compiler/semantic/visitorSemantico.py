@@ -1,33 +1,44 @@
-from compiler.gramatica_v3Visitor import gramatica_v3Visitor
+from compiler.gramatica_v4Visitor import gramatica_v4Visitor
 from compiler.semantic.tablaSimbolos import TablaSimbolos
 
-class SemanticVisitor(gramatica_v3Visitor):
+class SemanticVisitor(gramatica_v4Visitor):
 
     def __init__(self):
         self.tabla = TablaSimbolos()
+        self.structs = {}          # nombre_struct -> { campo: tipo }
         self.current_function = None
         self.in_loop = 0
 
-    # ================= ROOT =================
+    # ROOT
     def visitRoot(self, ctx):
         for stmt in ctx.statement():
             self.visit(stmt)
 
-    # ================= BLOCK =================
+    # BLOCK
     def visitBlock(self, ctx):
         self.tabla.push_scope()
         for stmt in ctx.statement():
             self.visit(stmt)
         self.tabla.pop_scope()
 
-    # ================= DECLARACIÓN =================
+    # STRUCT
+    def visitStructDecl(self, ctx):
+        nombre = ctx.VAR().getText()
+        campos = {}
+        for field in ctx.structField():
+            campo = field.VAR().getText()
+            tipo  = field.tipo().getText()
+            campos[campo] = tipo
+        self.structs[nombre] = campos
+
+    # DECLARACIÓN
     def visitDeclaration(self, ctx):
         self.visit(ctx.declarationStatement())
 
     def visitDeclarationStatement(self, ctx):
         nombre = ctx.VAR().getText()
-        tipo = ctx.tipo().getText()
-        decl = ctx.DECL().getText()
+        tipo   = ctx.tipo().getText()
+        decl   = ctx.DECL().getText()  # var | let | const
 
         valor_tipo = None
 
@@ -36,40 +47,72 @@ class SemanticVisitor(gramatica_v3Visitor):
         elif ctx.expr():
             valor_tipo = self.visit(ctx.expr())
 
-        if valor_tipo:
+        # No validar tipo si es un struct (sin inicializador primitivo)
+        if valor_tipo and tipo not in self.structs:
             if valor_tipo != tipo:
                 raise Exception(f"Error semántico: tipos incompatibles en declaración '{nombre}'")
 
         self.tabla.declarar(nombre, tipo, mutable=(decl != "const"))
 
-    # ================= ARRAY =================
+    # ARRAY
     def visitArrayLiteral(self, ctx):
         tipos = [self.visit(e) for e in ctx.expr()]
-
         if len(set(tipos)) != 1:
             raise Exception("Error semántico: array con tipos mixtos")
-
         return tipos[0] + "[]"
 
-    # ================= ASIGNACIÓN =================
-    def visitAssignment(self, ctx):
-        self.visit(ctx.assignmentStatement())
-
-    def visitAssignmentStatement(self, ctx):
+    # ASIGNACIÓN
+    def visitSimpleAssign(self, ctx):
         nombre = ctx.VAR().getText()
-        var = self.tabla.obtener(nombre)
+        var    = self.tabla.obtener(nombre)
 
         if not var.get("mutable", True):
-            raise Exception(f"Error: '{nombre}' es const")
+            raise Exception(f"Error: '{nombre}' es const y no puede modificarse")
 
-        tipo_expr = self.visit(ctx.expr())
+        tipo_expr = self.visit(ctx.valueExpr())
 
-        if tipo_expr != var["tipo"]:
+        # No comparar tipos struct con primitivos
+        if var["tipo"] not in self.structs and tipo_expr != var["tipo"]:
             raise Exception("Error semántico: tipos incompatibles en asignación")
 
-    # ================= FUNCIONES =================
+    def visitFieldAssign(self, ctx):
+        struct_var  = ctx.VAR()[0].getText()
+        field_name  = ctx.VAR()[1].getText()
+
+        var         = self.tabla.obtener(struct_var)
+        struct_tipo = var["tipo"]
+
+        if struct_tipo not in self.structs:
+            raise Exception(f"Error semántico: '{struct_var}' no es de tipo struct")
+        if field_name not in self.structs[struct_tipo]:
+            raise Exception(f"Error semántico: campo '{field_name}' no existe en '{struct_tipo}'")
+
+        tipo_campo = self.structs[struct_tipo][field_name]
+        tipo_expr  = self.visit(ctx.expr())
+
+        if tipo_expr != tipo_campo:
+            raise Exception(
+                f"Error semántico: tipos incompatibles en asignación de campo '{field_name}'"
+            )
+
+    # FIELD ACCESS
+    def visitFieldAccess(self, ctx):
+        struct_var  = ctx.VAR()[0].getText()
+        field_name  = ctx.VAR()[1].getText()
+
+        var         = self.tabla.obtener(struct_var)
+        struct_tipo = var["tipo"]
+
+        if struct_tipo not in self.structs:
+            raise Exception(f"Error semántico: '{struct_var}' no es de tipo struct")
+        if field_name not in self.structs[struct_tipo]:
+            raise Exception(f"Error semántico: campo '{field_name}' no existe en '{struct_tipo}'")
+
+        return self.structs[struct_tipo][field_name]
+
+    # FUNCIONES
     def visitFunctionDecl(self, ctx):
-        nombre = ctx.VAR().getText()
+        nombre       = ctx.VAR().getText()
         tipo_retorno = ctx.tipo().getText()
 
         parametros = []
@@ -83,30 +126,28 @@ class SemanticVisitor(gramatica_v3Visitor):
         self.current_function = tipo_retorno
 
         self.tabla.push_scope()
-
         for n, t in parametros:
             self.tabla.declarar(n, t)
-
         self.visit(ctx.block())
-
         self.tabla.pop_scope()
+
         self.current_function = prev
 
     def visitReturnStmt(self, ctx):
         if self.current_function is None:
-            raise Exception("Error: return fuera de función")
+            raise Exception("Error semántico: return fuera de función")
 
         if ctx.expr():
             tipo_expr = self.visit(ctx.expr())
             if tipo_expr != self.current_function:
-                raise Exception("Error: tipo de retorno incorrecto")
+                raise Exception("Error semántico: tipo de retorno incorrecto")
         else:
             if self.current_function != "void":
-                raise Exception("Error: return vacío en función no void")
+                raise Exception("Error semántico: return vacío en función no void")
 
     def visitFunctionCall(self, ctx):
         nombre = ctx.VAR().getText()
-        func = self.tabla.obtener_funcion(nombre)
+        func   = self.tabla.obtener_funcion(nombre)
 
         args = []
         if ctx.argList():
@@ -121,13 +162,12 @@ class SemanticVisitor(gramatica_v3Visitor):
 
         return func["retorno"]
 
-    # ================= CONTROL =================
+    # CONTROL DE FLUJO
     def visitIfStatement(self, ctx):
         if self.visit(ctx.condition()) != "bool":
             raise Exception("Error: condición de if debe ser bool")
 
         self.visit(ctx.block(0))
-
         if ctx.ELSE():
             self.visit(ctx.block(1))
 
@@ -166,14 +206,57 @@ class SemanticVisitor(gramatica_v3Visitor):
         self.tabla.pop_scope()
 
     def visitBreakStmt(self, ctx):
-        if self.in_loop == 0:
-            raise Exception("Error: break fuera de ciclo")
+
+        if self.in_loop == 0 and self.in_switch == 0:
+            raise Exception(
+                "Error: break fuera de ciclo o switch"
+            )
 
     def visitContinueStmt(self, ctx):
         if self.in_loop == 0:
             raise Exception("Error: continue fuera de ciclo")
 
-    # ================= CONDICIONES =================
+    def visitSwitchStatement(self, ctx):
+
+        tipo_switch = self.visit(ctx.expr())
+
+        self.in_switch += 1
+
+        for case_ctx in ctx.caseClause():
+
+            tipo_case = self.visit(case_ctx.literal())
+
+            if tipo_case != tipo_switch:
+                raise Exception(
+                    "Error semántico: tipo de case incompatible con switch"
+                )
+
+            for stmt in case_ctx.statement():
+                self.visit(stmt)
+
+        if ctx.defaultClause():
+
+            for stmt in ctx.defaultClause().statement():
+                self.visit(stmt)
+
+        self.in_switch -= 1
+
+    # IMPORT
+    def visitImportStmt(self, ctx):
+        return
+    
+    def visitLiteral(self, ctx):
+
+        if ctx.NUM():
+            return "int"
+
+        if ctx.FLOAT():
+            return "float"
+
+        if ctx.STRING():
+            return "string"
+
+    # CONDICIONES
     def visitCondition(self, ctx):
 
         if ctx.AND() or ctx.OR():
@@ -197,40 +280,8 @@ class SemanticVisitor(gramatica_v3Visitor):
         if ctx.condition():
             return self.visit(ctx.condition(0))
 
-    # ================= EXPRESIONES =================
+    # EXPRESIONES
     def visitExpr(self, ctx):
-
-        if ctx.getChildCount() == 3 and ctx.getChild(1).getText() in ['+', '-']:
-            t1 = self.visit(ctx.getChild(0))
-            t2 = self.visit(ctx.getChild(2))
-
-            if t1 != t2:
-                raise Exception("Error: operación entre tipos incompatibles")
-
-            return t1
-
-        return self.visit(ctx.term())
-
-    def visitTerm(self, ctx):
-
-        if ctx.getChildCount() == 3:
-            t1 = self.visit(ctx.getChild(0))
-            t2 = self.visit(ctx.getChild(2))
-            op = ctx.getChild(1).getText()
-
-            if t1 != t2:
-                raise Exception("Error: operación entre tipos incompatibles")
-
-            if op == '%':
-                if t1 != "int":
-                    raise Exception("Error: % solo válido para enteros")
-                return "int"
-
-            return t1
-
-        return self.visit(ctx.factor())
-
-    def visitFactor(self, ctx):
 
         if ctx.NUM():
             return "int"
@@ -244,28 +295,44 @@ class SemanticVisitor(gramatica_v3Visitor):
         if ctx.TRUE() or ctx.FALSE():
             return "bool"
 
-        # Array access: VAR '[' expr ']'  → 4 children (must check BEFORE plain VAR)
-        if ctx.getChildCount() == 4:
+        # ARRAY ACCESS
+        if ctx.getChildCount() == 4 and ctx.getChild(1).getText() == '[':
             nombre = ctx.VAR().getText()
-            var = self.tabla.obtener(nombre)
+            var    = self.tabla.obtener(nombre)
 
             if "[]" not in var["tipo"]:
-                raise Exception("Error: variable no es array")
+                raise Exception("Error: variable no es un array")
 
-            tipo_index = self.visit(ctx.expr())
+            tipo_index = self.visit(ctx.expr(0))
             if tipo_index != "int":
                 raise Exception("Error: índice debe ser int")
 
             return var["tipo"].replace("[]", "")
 
-        # Function call (must check BEFORE plain VAR because functionCall also has a VAR token)
-        if ctx.functionCall():
-            return self.visit(ctx.functionCall())
+        # FIELD ACCESS en expr
+        if ctx.fieldAccess():
+            return self.visit(ctx.fieldAccess())
 
-        # Plain variable
         if ctx.VAR():
             return self.tabla.obtener(ctx.VAR().getText())["tipo"]
 
-        # Parenthesized expression: '(' expr ')'
-        if ctx.getChildCount() == 3:
-            return self.visit(ctx.expr())
+        if ctx.functionCall():
+            return self.visit(ctx.functionCall())
+
+        if len(ctx.expr()) == 2:
+            t1 = self.visit(ctx.expr(0))
+            t2 = self.visit(ctx.expr(1))
+            op = ctx.getChild(1).getText()
+
+            if t1 != t2:
+                raise Exception("Error: operación entre tipos incompatibles")
+
+            if op == '%':
+                if t1 != "int":
+                    raise Exception("Error: % solo válido para enteros")
+                return "int"
+
+            return t1
+
+        if ctx.expr():
+            return self.visit(ctx.expr(0))
