@@ -69,7 +69,7 @@ class SemanticVisitor(gramatica_v4Visitor):
         if not var.get("mutable", True):
             raise Exception(f"Error: '{nombre}' es const y no puede modificarse")
 
-        tipo_expr = self.visit(ctx.expr())
+        tipo_expr = self.visit(ctx.valueExpr())
 
         # No comparar tipos struct con primitivos
         if var["tipo"] not in self.structs and tipo_expr != var["tipo"]:
@@ -206,16 +206,55 @@ class SemanticVisitor(gramatica_v4Visitor):
         self.tabla.pop_scope()
 
     def visitBreakStmt(self, ctx):
-        if self.in_loop == 0:
-            raise Exception("Error: break fuera de ciclo")
+
+        if self.in_loop == 0 and self.in_switch == 0:
+            raise Exception(
+                "Error: break fuera de ciclo o switch"
+            )
 
     def visitContinueStmt(self, ctx):
         if self.in_loop == 0:
             raise Exception("Error: continue fuera de ciclo")
 
+    def visitSwitchStatement(self, ctx):
+
+        tipo_switch = self.visit(ctx.expr())
+
+        self.in_switch += 1
+
+        for case_ctx in ctx.caseClause():
+
+            tipo_case = self.visit(case_ctx.literal())
+
+            if tipo_case != tipo_switch:
+                raise Exception(
+                    "Error semántico: tipo de case incompatible con switch"
+                )
+
+            for stmt in case_ctx.statement():
+                self.visit(stmt)
+
+        if ctx.defaultClause():
+
+            for stmt in ctx.defaultClause().statement():
+                self.visit(stmt)
+
+        self.in_switch -= 1
+
     # IMPORT
     def visitImportStmt(self, ctx):
         return
+    
+    def visitLiteral(self, ctx):
+
+        if ctx.NUM():
+            return "int"
+
+        if ctx.FLOAT():
+            return "float"
+
+        if ctx.STRING():
+            return "string"
 
     # CONDICIONES
     def visitCondition(self, ctx):
