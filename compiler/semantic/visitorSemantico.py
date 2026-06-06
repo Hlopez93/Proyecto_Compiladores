@@ -7,6 +7,7 @@ class SemanticVisitor(gramatica_v4Visitor):
         self.tabla = TablaSimbolos()
         self.current_function = None
         self.in_loop = 0  # control para break/continue
+        self.in_switch = 0
 
     # ROOT
     def visitRoot(self, ctx):
@@ -172,17 +173,56 @@ class SemanticVisitor(gramatica_v4Visitor):
         self.tabla.pop_scope()
 
     def visitBreakStmt(self, ctx):
-        if self.in_loop == 0:
-            raise Exception("Error: break fuera de ciclo")
+
+        if self.in_loop == 0 and self.in_switch == 0:
+            raise Exception(
+                "Error: break fuera de ciclo o switch"
+            )
 
     def visitContinueStmt(self, ctx):
         if self.in_loop == 0:
             raise Exception("Error: continue fuera de ciclo")
 
+    def visitSwitchStatement(self, ctx):
+
+        tipo_switch = self.visit(ctx.expr())
+
+        self.in_switch += 1
+
+        for case_ctx in ctx.caseClause():
+
+            tipo_case = self.visit(case_ctx.literal())
+
+            if tipo_case != tipo_switch:
+                raise Exception(
+                    "Error semántico: tipo de case incompatible con switch"
+                )
+
+            for stmt in case_ctx.statement():
+                self.visit(stmt)
+
+        if ctx.defaultClause():
+
+            for stmt in ctx.defaultClause().statement():
+                self.visit(stmt)
+
+        self.in_switch -= 1
+
     # IMPORT
     def visitImportStmt(self, ctx):
         # No se valida aún (fase futura)
         return
+    
+    def visitLiteral(self, ctx):
+
+        if ctx.NUM():
+            return "int"
+
+        if ctx.FLOAT():
+            return "float"
+
+        if ctx.STRING():
+            return "string"
 
     # CONDICIONES
     def visitCondition(self, ctx):

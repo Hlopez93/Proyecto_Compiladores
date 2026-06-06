@@ -199,6 +199,58 @@ class TACGenerator(gramatica_v4Visitor):
 
         self.emit(f"{label_end}:")
 
+    # FOR
+    def visitForStatement(self, ctx):
+
+        label_cond = self.new_label()
+        label_body = self.new_label()
+        label_update = self.new_label()
+        label_end = self.new_label()
+
+        # INIT
+        if ctx.forInit():
+
+            if ctx.forInit().declarationStatement():
+                self.visit(ctx.forInit().declarationStatement())
+
+            elif ctx.forInit().assignmentStatement():
+                self.visit(ctx.forInit().assignmentStatement())
+
+        # COND
+        self.emit(f"{label_cond}:")
+
+        if ctx.condition():
+
+            cond = self.visit(ctx.condition())
+
+            self.emit(f"if {cond} goto {label_body}")
+            self.emit(f"goto {label_end}")
+
+        else:
+            self.emit(f"goto {label_body}")
+
+        # LOOP STACK
+        self.loop_stack.append({
+            "break": label_end,
+            "continue": label_update
+        })
+
+        # BODY
+        self.emit(f"{label_body}:")
+        self.visit(ctx.block())
+
+        # UPDATE
+        self.emit(f"{label_update}:")
+
+        if ctx.forUpdate():
+            self.visit(ctx.forUpdate().assignmentStatement())
+
+        self.emit(f"goto {label_cond}")
+
+        self.loop_stack.pop()
+
+        self.emit(f"{label_end}:")
+
     # BREAK / CONTINUE
     def visitBreakStmt(self, ctx):
         target = self.loop_stack[-1]["break"]
@@ -207,6 +259,45 @@ class TACGenerator(gramatica_v4Visitor):
     def visitContinueStmt(self, ctx):
         target = self.loop_stack[-1]["continue"]
         self.emit(f"goto {target}")
+
+    def visitSwitchStatement(self, ctx):
+
+        valor_switch = self.visit(ctx.expr())
+
+        end_label = self.new_label()
+
+        self.loop_stack.append({
+            "break": end_label,
+            "continue": end_label
+        })
+
+        for case_ctx in ctx.caseClause():
+
+            valor_case = self.visit(case_ctx.literal())
+
+            case_label = self.new_label()
+
+            self.emit(
+                f"if {valor_switch} == {valor_case} goto {case_label}"
+            )
+
+            self.emit(f"{case_label}:")
+
+            for stmt in case_ctx.statement():
+                self.visit(stmt)
+
+        if ctx.defaultClause():
+
+            default_label = self.new_label()
+
+            self.emit(f"{default_label}:")
+
+            for stmt in ctx.defaultClause().statement():
+                self.visit(stmt)
+
+        self.loop_stack.pop()
+
+        self.emit(f"{end_label}:")
 
     # FUNCIONES
     def visitFunctionDecl(self, ctx):
